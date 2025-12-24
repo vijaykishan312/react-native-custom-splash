@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Example - Image + Logo",
+    "slug": "splash-example-image-logo",
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/splash-bg.png",
+          "logo": "./assets/logo.png",
+          "logoWidth": 150
+        }
+      ]
+    ]
+  }
+}

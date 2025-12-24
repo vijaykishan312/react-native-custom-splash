@@ -6,11 +6,6 @@
         "orientation": "portrait",
         "icon": "./assets/icon.png",
         "userInterfaceStyle": "light",
-        "splash": {
-            "image": "./assets/splash.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#ffffff"
-        },
         "assetBundlePatterns": [
             "**/*"
         ],
@@ -29,7 +24,15 @@
             "favicon": "./assets/favicon.png"
         },
         "plugins": [
-            "react-native-custom-splash"
+            [
+                "react-native-custom-splash",
+                {
+                    "backgroundColor": "#4F46E5",
+                    "image": "./assets/splash-bg.png",
+                    "logo": "./assets/logo.png",
+                    "logoWidth": 180
+                }
+            ]
         ]
     }
 }

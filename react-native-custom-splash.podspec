@@ -1,9 +1,9 @@
 require "json"
 
-package = JSON.parse(File.read(File.join(__dir__, "../package.json")))
+package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 
 Pod::Spec.new do |s|
-  s.name         = "RNCustomSplash"
+  s.name         = "react-native-custom-splash"
   s.version      = package["version"]
   s.summary      = package["description"]
   s.homepage     = package["repository"]["url"]
@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "13.0" }
   s.source       = { :git => package["repository"]["url"], :tag => "#{s.version}" }
 
-  s.source_files = "*.{h,m,mm,swift}"
+  s.source_files = "ios/*.{h,m,mm,swift}"
   
   s.dependency "React-Core"
 end

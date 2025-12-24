@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Example - Color Only",
+    "slug": "splash-example-color-only",
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#FF6B6B"
+        }
+      ]
+    ]
+  }
+}

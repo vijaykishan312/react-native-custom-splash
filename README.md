@@ -1,20 +1,18 @@
-# react-native-custom-splash
+# react-native-custom-splash 🎨
 
-A custom splash screen module for React Native with native iOS and Android support, fully compatible with Expo.
+A powerful and easy-to-use custom splash screen module for React Native with native iOS and Android support, **fully compatible with Expo**!
 
-## Features
+## ✨ Features
 
-- ✅ **Native iOS & Android** splash screens
-- ✅ **Expo compatible** with config plugin
-- ✅ **Customizable** splash images
-- ✅ **Animated transitions** for smooth hiding
-- ✅ **TypeScript** support
-- ✅ **Auto-show** on app launch
-- ✅ **Manual control** with show/hide methods
+- 🚀 **Zero Native Code Required** - Just configure in `app.json`
+- 🎨 **Auto Image Setup** - Automatically copies images from your project to native folders
+- 🖼️ **Background + Logo Support** - Add a full background image and/or center logo
+- 🎨 **Customizable Colors** - Set your brand's background color
+- 📱 **Native Performance** - Pure native implementation for both iOS and Android
+- ⚡ **Expo Compatible** - Works seamlessly with Expo managed workflow
+- 🔄 **Simple API** - Easy show/hide methods with animation support
 
-## Installation
-
-### For Expo Projects
+## 📦 Installation
 
 ```bash
 npm install react-native-custom-splash
@@ -22,103 +20,169 @@ npm install react-native-custom-splash
 yarn add react-native-custom-splash
 ```
 
-Add the plugin to your `app.json` or `app.config.js`:
+## 🎯 Quick Start (The Easy Way!)
+
+### Step 1: Add your images to your project
+
+Create an `assets` folder in your project root and add your images:
+
+```
+your-project/
+├── assets/
+│   ├── splash-background.png  (your full background image - optional)
+│   └── logo.png               (your center logo - optional)
+├── app.json
+└── ...
+```
+
+### Step 2: Configure in app.json
+
+Choose one of the 4 configuration options below based on your needs:
+
+## 🎨 Configuration Examples
+
+### **Option 1: Single Full Image** (Most Common) ⭐
+
+Perfect for a complete branded splash screen with your custom design.
 
 ```json
 {
   "expo": {
+    "name": "YourApp",
     "plugins": [
-      "react-native-custom-splash"
+      [
+        "react-native-custom-splash",
+        {
+          "image": "./assets/splash.png"
+        }
+      ]
     ]
   }
 }
 ```
 
-Then run prebuild:
-
-```bash
-npx expo prebuild
+**Project Structure:**
+```
+your-project/
+├── assets/
+│   └── splash.png          ← Your full-screen image (1242×2688px)
+└── app.json
 ```
 
-### For Bare React Native Projects
+---
 
-```bash
-npm install react-native-custom-splash
-# or
-yarn add react-native-custom-splash
-```
+### **Option 2: Background Color + Center Logo**
 
-#### iOS Setup
+Great for a clean, minimal look with just your logo.
 
-1. Install pods:
-```bash
-cd ios && pod install && cd ..
-```
-
-2. The module will be automatically linked.
-
-#### Android Setup
-
-1. Add the package to your `MainApplication.kt`:
-
-```kotlin
-import com.rncustomsplash.SplashScreenPackage
-
-// In getPackages() method:
-packages.add(SplashScreenPackage())
-```
-
-2. Show splash in `MainActivity.kt`:
-
-```kotlin
-import com.rncustomsplash.SplashScreenModule
-
-override fun onCreate(savedInstanceState: Bundle?) {
-    SplashScreenModule.show(this)
-    super.onCreate(savedInstanceState)
+```json
+{
+  "expo": {
+    "name": "YourApp",
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#4F46E5",
+          "logo": "./assets/logo.png",
+          "logoWidth": 180
+        }
+      ]
+    ]
+  }
 }
 ```
 
-## Adding Custom Splash Images
-
-### iOS
-
-Add your splash image to your Xcode project:
-1. Open your project in Xcode
-2. Add an image asset named `splash` to your Assets catalog
-3. Or add a `splash.png` file to your project
-
-### Android
-
-Add your splash image to Android resources:
-1. Add `splash.png` (or `splash.jpg`) to `android/app/src/main/res/drawable/`
-2. Or create a drawable resource named `splash`
-
-You can also customize the background color in `android/app/src/main/res/values/colors.xml`:
-
-```xml
-<color name="splash_background">#FFFFFF</color>
+**Project Structure:**
+```
+your-project/
+├── assets/
+│   └── logo.png            ← Your center logo (512×512px)
+└── app.json
 ```
 
-## Usage
+---
 
-```typescript
+### **Option 3: Background Image + Center Logo**
+
+Maximum customization - background image with logo on top.
+
+```json
+{
+  "expo": {
+    "name": "YourApp",
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/splash-bg.png",
+          "logo": "./assets/logo.png",
+          "logoWidth": 150
+        }
+      ]
+    ]
+  }
+}
+```
+
+**Project Structure:**
+```
+your-project/
+├── assets/
+│   ├── splash-bg.png       ← Background image
+│   └── logo.png            ← Center logo
+└── app.json
+```
+
+---
+
+### **Option 4: Only Background Color**
+
+Simple solid color background.
+
+```json
+{
+  "expo": {
+    "name": "YourApp",
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#FF6B6B"
+        }
+      ]
+    ]
+  }
+}
+```
+
+---
+
+### Step 3: Run prebuild
+
+```bash
+npx expo prebuild --clean
+```
+
+**That's it!** 🎉 The plugin will automatically:
+- ✅ Copy your images to iOS and Android native folders
+- ✅ Configure the native splash screen
+- ✅ Set up all the required files
+- ✅ Handle different screen densities
+
+### Step 4: Use in your app
+
+```javascript
 import SplashScreen from 'react-native-custom-splash';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 function App() {
   useEffect(() => {
-    // Hide splash screen after app is ready
-    // The splash screen shows automatically on launch
-    
-    // Simple hide (instant)
-    SplashScreen.hide(false);
-    
-    // Or with animation
-    SplashScreen.hide(true);
-    
-    // You can also show it again
-    // SplashScreen.show();
+    // Hide splash screen after app loads
+    setTimeout(() => {
+      SplashScreen.hide(true); // true = animated
+    }, 2000);
   }, []);
 
   return (
@@ -127,152 +191,249 @@ function App() {
 }
 ```
 
-## Example Project
+## ⚙️ Configuration Options Reference
 
-A complete working example is included in the `example/` directory. It demonstrates:
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `backgroundColor` | `string` | `#FFFFFF` | Background color (hex format: #RRGGBB) |
+| `image` | `string` | `null` | Path to full background image (optional) |
+| `logo` | `string` | `null` | Path to center logo image (optional) |
+| `logoWidth` | `number` | `150` | Width of the center logo in pixels |
 
-- ✅ Automatic splash screen on launch
-- ✅ Loading progress simulation
-- ✅ Animated hide transitions
-- ✅ Manual show/hide controls
-- ✅ Full TypeScript integration
+## 📱 API Reference
 
-### Run the Example
-
-```bash
-cd example
-npm install
-npx expo prebuild
-npm run ios  # or npm run android
-```
-
-See [example/README.md](./example/README.md) for detailed instructions.
-
-## API Reference
-
-### `SplashScreen.show()`
-
-Shows the splash screen.
-
-```typescript
-SplashScreen.show();
-```
-
-### `SplashScreen.hide(animated?)`
+### `SplashScreen.hide(animated)`
 
 Hides the splash screen.
 
 **Parameters:**
-- `animated` (boolean, optional): Whether to animate the hide transition. Default: `false`
+- `animated` (boolean): Whether to animate the hide transition. Default: `true`
 
-**Returns:** `Promise<boolean>` - Resolves to `true` if successful
+**Returns:** Promise<boolean>
 
-```typescript
-// Hide instantly
-await SplashScreen.hide();
-
-// Hide with fade animation
+**Example:**
+```javascript
+// With animation (recommended)
 await SplashScreen.hide(true);
+
+// Without animation
+await SplashScreen.hide(false);
 ```
 
-## Example
+### `SplashScreen.show()`
+
+Shows the splash screen (usually not needed as it shows automatically on app launch).
+
+**Example:**
+```javascript
+SplashScreen.show();
+```
+
+## 🎨 Image Guidelines
+
+### Background Image
+- **Recommended size:** 1242 x 2688 px (iPhone 13 Pro Max size)
+- **Format:** PNG or JPG
+- **Aspect ratio:** Match your target device screens
+- **Tip:** The plugin will handle different screen densities automatically
+
+### Logo Image
+- **Recommended size:** 512 x 512 px (or your desired aspect ratio)
+- **Format:** PNG with transparency recommended
+- **Tip:** The logo will be centered and sized according to `logoWidth`
+
+## 🔧 Advanced Usage
+
+### TypeScript Support
+
+Full TypeScript support is included:
 
 ```typescript
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import SplashScreen, { SplashScreenInterface } from 'react-native-custom-splash';
+
+const hideSplash = async (): Promise<void> => {
+  await SplashScreen.hide(true);
+};
+```
+
+### React Navigation Integration
+
+```javascript
+import { NavigationContainer } from '@react-navigation/native';
 import SplashScreen from 'react-native-custom-splash';
 
-export default function App() {
-  const [appIsReady, setAppIsReady] = useState(false);
+function App() {
+  const [isReady, setIsReady] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     async function prepare() {
       try {
         // Load your resources here
         await loadFonts();
         await loadData();
-        
-        // Artificially delay for demo
-        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (e) {
         console.warn(e);
       } finally {
-        setAppIsReady(true);
+        setIsReady(true);
       }
     }
 
     prepare();
   }, []);
 
-  useEffect(() => {
-    if (appIsReady) {
-      // Hide splash screen with animation when app is ready
+  React.useEffect(() => {
+    if (isReady) {
       SplashScreen.hide(true);
     }
-  }, [appIsReady]);
+  }, [isReady]);
 
-  if (!appIsReady) {
-    return null; // Splash screen is visible
+  if (!isReady) {
+    return null;
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>App is ready!</Text>
-    </View>
+    <NavigationContainer>
+      {/* Your navigation */}
+    </NavigationContainer>
   );
 }
 ```
 
-## Troubleshooting
+## 🔄 Migration from Manual Setup
+
+If you were using the old manual method, you can now simplify:
+
+**Before (Manual Method):**
+1. ❌ Manually copy images to `ios/` folder
+2. ❌ Open Xcode and add images to Assets
+3. ❌ Manually copy images to `android/app/src/main/res/drawable/`
+4. ❌ Manually edit `colors.xml`
+5. ❌ Configure multiple drawable folders
+
+**After (Automatic Method):**
+1. ✅ Add images to `assets/` folder
+2. ✅ Configure in `app.json`
+3. ✅ Run `npx expo prebuild --clean`
+4. ✅ Done!
+
+## 🛠️ Manual Setup (Non-Expo Projects)
+
+If you're not using Expo, you can still use this package with manual setup:
 
 ### iOS
 
-**Module not found:**
-- Make sure you ran `pod install` in the `ios/` directory
-- Clean build folder: `cd ios && rm -rf build && cd ..`
-- Rebuild the app
-
-**Splash image not showing:**
-- Verify the image is named `splash` in your Assets catalog
-- Check that the image is added to the target
+Add your splash image to your Xcode project:
+1. Open your project in Xcode
+2. Add an image asset named `splash_image` for background and/or `splash_logo` for center logo to your Assets catalog
 
 ### Android
 
-**Module not found:**
-- Verify `SplashScreenPackage()` is added to `MainApplication.kt`
-- Clean build: `cd android && ./gradlew clean && cd ..`
-- Rebuild the app
+Add your images to Android resources:
+1. Add `splash_image.png` (background) and/or `splash_logo.png` (center logo) to `android/app/src/main/res/drawable/`
+2. Customize the background color in `android/app/src/main/res/values/colors.xml`:
 
-**Splash image not showing:**
-- Check that `splash.png` exists in `res/drawable/`
-- Verify the resource name matches in `splash_screen.xml`
+```xml
+<color name="splash_background">#FFFFFF</color>
+```
 
-### Expo
+## ❓ Troubleshooting
 
-**Plugin not working:**
-- Make sure you added the plugin to `app.json`
-- Run `npx expo prebuild --clean`
-- Rebuild the app
+### ⚠️ Error: "Plugin is an unexpected object"
 
-## TypeScript
+**Full Error:**
+```
+PluginError: Plugin is an unexpected object, with keys: "backgroundColor, image, logoWidth".
+```
 
-This package includes TypeScript definitions. The module exports the following interface:
+**Cause:** Your plugin configuration is not properly wrapped in square brackets.
 
-```typescript
-interface SplashScreenInterface {
-  show(): void;
-  hide(animated?: boolean): Promise<boolean>;
+**❌ Wrong:**
+```json
+{
+  "plugins": [
+    "react-native-custom-splash",
+    {
+      "backgroundColor": "#FF6B6B"
+    }
+  ]
 }
 ```
 
-## License
+**✅ Correct:**
+```json
+{
+  "plugins": [
+    [
+      "react-native-custom-splash",
+      {
+        "backgroundColor": "#FF6B6B"
+      }
+    ]
+  ]
+}
+```
+
+**Key Point:** When passing configuration to a plugin, wrap BOTH the plugin name and the config object in square brackets `[]`.
+
+---
+
+### Splash screen not showing
+- Make sure you run `npx expo prebuild --clean` after changing configuration
+- Check that your image paths in `app.json` are correct and files exist
+- Verify images are in the `assets/` folder
+- Try cleaning your build:
+  - iOS: `cd ios && pod install && cd ..`
+  - Android: `cd android && ./gradlew clean && cd ..`
+
+### Images not updating
+- Run `npx expo prebuild --clean` to force regeneration of native projects
+- Delete `ios/` and `android/` folders, then run `npx expo prebuild --clean` again
+- Clear build caches:
+  - iOS: `rm -rf ios/Pods ios/build`
+  - Android: `cd android && ./gradlew clean && cd ..`
+
+### Image paths not working
+- Use relative paths from project root: `"./assets/splash.png"` ✅
+- Don't use absolute paths: `"/Users/..."` ❌
+- Make sure the file extension matches (`.png`, `.jpg`)
+- Check file actually exists at that path
+
+### Background color not working
+- Use hex format: `"#FF6B6B"` ✅
+- Don't forget the `#`: `"FF6B6B"` ❌
+- Use 6-digit format: `"#FFFFFF"` ✅ not `"#FFF"` ❌
+
+### TypeScript errors
+- Make sure you have `@types/react` and `@types/react-native` installed
+- The package includes TypeScript definitions
+- Try: `npm install --save-dev @types/react @types/react-native`
+
+### Pod install fails (iOS)
+```bash
+cd ios
+rm -rf Pods Podfile.lock
+pod install --repo-update
+cd ..
+```
+
+### Still having issues?
+1. Delete `node_modules/` and reinstall: `npm install` or `yarn install`
+2. Delete `ios/` and `android/` folders
+3. Run `npx expo prebuild --clean`
+4. Check the [GitHub Issues](https://github.com/vijaykishan312/react-native-custom-splash/issues)
+
+## 📄 License
 
 MIT
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Issues
+## 💖 Support
 
-If you encounter any issues, please file them on the GitHub repository.
+If you find this package helpful, please give it a ⭐️ on [GitHub](https://github.com/vijaykishan312/react-native-custom-splash)!
+
+---
+
+Made with ❤️ for the React Native community

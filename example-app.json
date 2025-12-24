@@ -1,0 +1,18 @@
+{
+    "expo": {
+        "name": "Example App",
+        "slug": "example-app",
+        "version": "1.0.0",
+        "plugins": [
+            [
+                "react-native-custom-splash",
+                {
+                    "backgroundColor": "#4F46E5",
+                    "image": "./assets/splash-background.png",
+                    "logo": "./assets/logo.png",
+                    "logoWidth": 180
+                }
+            ]
+        ]
+    }
+}

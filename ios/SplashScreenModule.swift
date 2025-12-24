@@ -40,21 +40,48 @@ class SplashScreenModule: NSObject {
       let splashVC = UIViewController()
       splashVC.view.backgroundColor = .white
       
-      // Try to load splash image from the main bundle
-      // Users should add their splash image to their app's assets
-      if let splashImage = UIImage(named: "splash") {
+      // Try to load background splash image from the main bundle
+      if let splashImage = UIImage(named: "splash_image") {
+        let imageView = UIImageView(image: splashImage)
+        imageView.contentMode = .scaleAspectFill
+        imageView.frame = splashVC.view.bounds
+        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        splashVC.view.addSubview(imageView)
+      } else if let splashImage = UIImage(named: "splash") {
+        // Fallback to old "splash" name for backward compatibility
         let imageView = UIImageView(image: splashImage)
         imageView.contentMode = .scaleAspectFill
         imageView.frame = splashVC.view.bounds
         imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         splashVC.view.addSubview(imageView)
       } else {
-        // Fallback: show white screen if no splash image is provided
+        // Fallback: show white screen if no background image
         if #available(iOS 13.0, *) {
           splashVC.view.backgroundColor = .systemBackground
         } else {
           splashVC.view.backgroundColor = .white
         }
+      }
+      
+      // Add center logo if available
+      if let logoImage = UIImage(named: "splash_logo") {
+        let logoView = UIImageView(image: logoImage)
+        logoView.contentMode = .scaleAspectFit
+        
+        // Set logo size (150pt width by default, maintaining aspect ratio)
+        let logoWidth: CGFloat = 150
+        let aspectRatio = logoImage.size.height / logoImage.size.width
+        let logoHeight = logoWidth * aspectRatio
+        
+        logoView.frame = CGRect(
+          x: (splashVC.view.bounds.width - logoWidth) / 2,
+          y: (splashVC.view.bounds.height - logoHeight) / 2,
+          width: logoWidth,
+          height: logoHeight
+        )
+        
+        logoView.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+        splashVC.view.addSubview(logoView)
       }
       
       window.rootViewController = splashVC

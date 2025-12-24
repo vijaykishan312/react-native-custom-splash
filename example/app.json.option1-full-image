@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Example - Single Full Image",
+    "slug": "splash-example-full-image",
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "image": "./assets/splash.png"
+        }
+      ]
+    ]
+  }
+}
