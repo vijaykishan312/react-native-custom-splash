@@ -38,6 +38,7 @@
         "ios/",
         "android/",
         "plugin/",
+        "app.plugin.js",
         "react-native-custom-splash.podspec",
         "README.md",
         "LICENSE"
