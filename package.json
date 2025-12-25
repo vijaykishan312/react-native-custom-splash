@@ -1,6 +1,6 @@
 {
     "name": "react-native-custom-splash",
-    "version": "3.0.2",
+    "version": "3.0.4",
     "description": "A custom splash screen module for React Native with native iOS and Android support, fully compatible with Expo",
     "main": "src/index.js",
     "types": "src/index.d.ts",

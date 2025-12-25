@@ -2,12 +2,14 @@ const { withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
+/**
+ * REAL FIX: Replace Expo's SplashScreen.storyboard directly
+ * The issue was: We were creating LaunchScreen.storyboard but Expo uses SplashScreen.storyboard!
+ */
 function withForcediOSSplash(config, pluginConfig) {
-    config = {
-        ...config,
-        splash: undefined,
-        ios: { ...config.ios, splash: undefined }
-    };
+    // Disable Expo's splash config
+    if (config.splash) delete config.splash;
+    if (config.ios && config.ios.splash) delete config.ios.splash;
 
     return withDangerousMod(config, [
         'ios',
@@ -15,163 +17,160 @@ function withForcediOSSplash(config, pluginConfig) {
             const projectRoot = config.modRequest.projectRoot;
             const iosPath = config.modRequest.platformProjectRoot;
             const projectName = config.modRequest.projectName;
+            const projectDir = path.join(iosPath, projectName);
+            const assetsPath = path.join(projectDir, 'Images.xcassets');
 
-            console.log('\n🔥 Setting up splash screen...\n');
+            console.log('\n🔥 REPLACING EXPO SPLASH WITH CUSTOM SPLASH...\n');
 
-            // Delete old files
-            const toDelete = [
-                'SplashScreen.storyboard',
-                'LaunchScreen.storyboard',
-                'Images.xcassets/SplashScreenLegacy.imageset',
+            // STEP 1: Delete Expo's splash images
+            const foldersToDelete = [
                 'Images.xcassets/SplashScreen.imageset',
                 'Images.xcassets/SplashScreenBackground.imageset',
+                'Images.xcassets/SplashScreenLegacy.imageset',
             ];
 
-            toDelete.forEach(file => {
-                const fullPath = path.join(iosPath, projectName, file);
-                try {
-                    if (fs.existsSync(fullPath)) {
-                        if (fs.lstatSync(fullPath).isDirectory()) {
-                            fs.rmSync(fullPath, { recursive: true, force: true });
-                        } else {
-                            fs.unlinkSync(fullPath);
-                        }
-                    }
-                } catch (e) { }
+            foldersToDelete.forEach(folder => {
+                const fullPath = path.join(projectDir, folder);
+                if (fs.existsSync(fullPath)) {
+                    fs.rmSync(fullPath, { recursive: true, force: true });
+                    console.log('🗑️  Deleted:', folder);
+                }
             });
 
-            // Update Info.plist
-            const plistPath = path.join(iosPath, projectName, 'Info.plist');
-            if (fs.existsSync(plistPath)) {
-                let plist = fs.readFileSync(plistPath, 'utf8');
-                plist = plist.replace(/<key>UILaunchStoryboardName<\/key>\s*<string>.*?<\/string>/g, '');
-                plist = plist.replace(/<key>UILaunchScreen<\/key>[\s\S]*?<\/dict>/g, '');
-
-                if (!plist.includes('UILaunchStoryboardName')) {
-                    plist = plist.replace('</dict>\n</plist>', '\t<key>UILaunchStoryboardName</key>\n\t<string>LaunchScreen</string>\n</dict>\n</plist>');
-                }
-
-                fs.writeFileSync(plistPath, plist);
-            }
-
-            const assetsPath = path.join(iosPath, projectName, 'Images.xcassets');
-            let hasImage = false;
+            // STEP 2: Copy user images
+            let hasBackground = false;
             let hasLogo = false;
 
-            // Copy background image
             if (pluginConfig.image) {
                 const srcPath = path.join(projectRoot, pluginConfig.image);
                 if (fs.existsSync(srcPath)) {
                     const imagesetDir = path.join(assetsPath, 'SplashBg.imageset');
-
-                    if (fs.existsSync(imagesetDir)) fs.rmSync(imagesetDir, { recursive: true, force: true });
+                    if (fs.existsSync(imagesetDir)) {
+                        fs.rmSync(imagesetDir, { recursive: true, force: true });
+                    }
                     fs.mkdirSync(imagesetDir, { recursive: true });
 
                     fs.copyFileSync(srcPath, path.join(imagesetDir, 'image.png'));
-
                     fs.writeFileSync(path.join(imagesetDir, 'Contents.json'), JSON.stringify({
                         images: [
-                            { filename: 'image.png', idiom: 'universal', scale: '1x' },
-                            { filename: 'image.png', idiom: 'universal', scale: '2x' },
-                            { filename: 'image.png', idiom: 'universal', scale: '3x' }
+                            { idiom: 'universal', filename: 'image.png', scale: '1x' },
+                            { idiom: 'universal', filename: 'image.png', scale: '2x' },
+                            { idiom: 'universal', filename: 'image.png', scale: '3x' }
                         ],
                         info: { author: 'xcode', version: 1 }
                     }, null, 2));
 
-                    hasImage = true;
-                    console.log('✅ Background copied');
+                    hasBackground = true;
+                    console.log('✅ Background image copied');
                 }
             }
 
-            // Copy logo
             if (pluginConfig.logo) {
                 const srcPath = path.join(projectRoot, pluginConfig.logo);
                 if (fs.existsSync(srcPath)) {
-                    const imagesetDir = path.join(assetsPath, 'SplashIcon.imageset');
-
-                    if (fs.existsSync(imagesetDir)) fs.rmSync(imagesetDir, { recursive: true, force: true });
+                    const imagesetDir = path.join(assetsPath, 'SplashLogo.imageset');
+                    if (fs.existsSync(imagesetDir)) {
+                        fs.rmSync(imagesetDir, { recursive: true, force: true });
+                    }
                     fs.mkdirSync(imagesetDir, { recursive: true });
 
-                    fs.copyFileSync(srcPath, path.join(imagesetDir, 'icon.png'));
-
+                    fs.copyFileSync(srcPath, path.join(imagesetDir, 'logo.png'));
                     fs.writeFileSync(path.join(imagesetDir, 'Contents.json'), JSON.stringify({
                         images: [
-                            { filename: 'icon.png', idiom: 'universal', scale: '1x' },
-                            { filename: 'icon.png', idiom: 'universal', scale: '2x' },
-                            { filename: 'icon.png', idiom: 'universal', scale: '3x' }
+                            { idiom: 'universal', filename: 'logo.png', scale: '1x' },
+                            { idiom: 'universal', filename: 'logo.png', scale: '2x' },
+                            { idiom: 'universal', filename: 'logo.png', scale: '3x' }
                         ],
                         info: { author: 'xcode', version: 1 }
                     }, null, 2));
 
                     hasLogo = true;
-                    console.log('✅ Logo copied');
+                    console.log('✅ Logo image copied');
                 }
             }
 
-            // Create storyboard
-            const color = pluginConfig.backgroundColor.replace('#', '');
-            const r = parseInt(color.substr(0, 2), 16) / 255;
-            const g = parseInt(color.substr(2, 2), 16) / 255;
-            const b = parseInt(color.substr(4, 2), 16) / 255;
+            // STEP 3: Create CLEAN SplashScreen.storyboard (SAME NAME AS EXPO!)
+            const bgColor = pluginConfig.backgroundColor || '#FFFFFF';
+            const color = bgColor.replace('#', '');
+            const r = (parseInt(color.substr(0, 2), 16) / 255).toFixed(6);
+            const g = (parseInt(color.substr(2, 2), 16) / 255).toFixed(6);
+            const b = (parseInt(color.substr(4, 2), 16) / 255).toFixed(6);
+
+            // Build subviews
+            let subviews = '';
+            let constraints = '';
+            let resources = '';
+
+            if (hasBackground) {
+                subviews += `
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashBg" translatesAutoresizingMaskIntoConstraints="NO" id="bgImage">
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                            </imageView>`;
+                constraints += `
+                            <constraint firstItem="bgImage" firstAttribute="top" secondItem="rootView" secondAttribute="top" id="c1"/>
+                            <constraint firstItem="bgImage" firstAttribute="leading" secondItem="rootView" secondAttribute="leading" id="c2"/>
+                            <constraint firstItem="bgImage" firstAttribute="trailing" secondItem="rootView" secondAttribute="trailing" id="c3"/>
+                            <constraint firstItem="bgImage" firstAttribute="bottom" secondItem="rootView" secondAttribute="bottom" id="c4"/>`;
+                resources += `
+        <image name="SplashBg" width="1242" height="2688"/>`;
+            }
+
+            if (hasLogo) {
+                subviews += `
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashLogo" translatesAutoresizingMaskIntoConstraints="NO" id="logoImage">
+                                <rect key="frame" x="121" y="376" width="150" height="100"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="150" id="c5"/>
+                                    <constraint firstAttribute="height" constant="100" id="c6"/>
+                                </constraints>
+                            </imageView>`;
+                constraints += `
+                            <constraint firstItem="logoImage" firstAttribute="centerX" secondItem="rootView" secondAttribute="centerX" id="c7"/>
+                            <constraint firstItem="logoImage" firstAttribute="centerY" secondItem="rootView" secondAttribute="centerY" id="c8"/>`;
+                resources += `
+        <image name="SplashLogo" width="512" height="512"/>`;
+            }
 
             const storyboard = `<?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
-    <device id="retina6_1" orientation="portrait" appearance="light"/>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="MAIN-VC">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
-        <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21679"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22504"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
-        <scene sceneID="EHf-IW-A2E">
+        <scene sceneID="MAIN-SCENE">
             <objects>
-                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
-                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
-                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                <viewController id="MAIN-VC" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="rootView">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>${hasImage ? `
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashBg" translatesAutoresizingMaskIntoConstraints="NO" id="bg-img">
-                                <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
-                            </imageView>` : ''}${hasLogo ? `
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashIcon" translatesAutoresizingMaskIntoConstraints="NO" id="logo-img">
-                                <rect key="frame" x="132" y="373" width="150" height="150"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="150" id="w"/>
-                                    <constraint firstAttribute="height" constant="150" id="h"/>
-                                </constraints>
-                            </imageView>` : ''}
+                        <subviews>${subviews}
                         </subviews>
-                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
+                        <viewLayoutGuide key="safeArea" id="safeArea"/>
                         <color key="backgroundColor" red="${r}" green="${g}" blue="${b}" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                        <constraints>${hasImage ? `
-                            <constraint firstItem="bg-img" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top"/>
-                            <constraint firstItem="bg-img" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading"/>
-                            <constraint firstItem="bg-img" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing"/>
-                            <constraint firstItem="bg-img" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom"/>` : ''}${hasLogo ? `
-                            <constraint firstItem="logo-img" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX"/>
-                            <constraint firstItem="logo-img" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY"/>` : ''}
+                        <constraints>${constraints}
                         </constraints>
                     </view>
                 </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="FIRST-RESP" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="53" y="375"/>
+            <point key="canvasLocation" x="0" y="0"/>
         </scene>
     </scenes>
-    <resources>${hasImage ? `
-        <image name="SplashBg" width="1242" height="2688"/>` : ''}${hasLogo ? `
-        <image name="SplashIcon" width="512" height="512"/>` : ''}
+    <resources>${resources}
     </resources>
 </document>`;
 
-            const storyboardPath = path.join(iosPath, projectName, 'LaunchScreen.storyboard');
-            if (fs.existsSync(storyboardPath)) fs.unlinkSync(storyboardPath);
+            // IMPORTANT: Write to SplashScreen.storyboard (same as Expo!)
+            const storyboardPath = path.join(projectDir, 'SplashScreen.storyboard');
             fs.writeFileSync(storyboardPath, storyboard);
 
-            console.log('✅ LaunchScreen.storyboard created!');
-            console.log(`   Background: ${hasImage ? 'YES' : 'NO'}`);
-            console.log(`   Logo: ${hasLogo ? 'YES' : 'NO'}\n`);
+            console.log('✅ SplashScreen.storyboard REPLACED!');
+            console.log(`   📸 Background: ${hasBackground ? 'SplashBg ✓' : 'NO'}`);
+            console.log(`   🎨 Logo: ${hasLogo ? 'SplashLogo ✓' : 'NO'}`);
+            console.log(`   🌈 Color: ${bgColor}\n`);
 
             return config;
         },
