@@ -1,6 +1,6 @@
 {
     "name": "react-native-custom-splash",
-    "version": "3.0.4",
+    "version": "3.1.1",
     "description": "A custom splash screen module for React Native with native iOS and Android support, fully compatible with Expo",
     "main": "src/index.js",
     "types": "src/index.d.ts",
@@ -15,8 +15,15 @@
         "splash",
         "ios",
         "android",
-        "native-module"
+        "native-module",
+        "new-architecture",
+        "turbomodule",
+        "fabric"
     ],
+    "homepage": "https://github.com/vijaykishan312/react-native-custom-splash#readme",
+    "bugs": {
+        "url": "https://github.com/vijaykishan312/react-native-custom-splash/issues"
+    },
     "author": "Vijay Kishan",
     "license": "MIT",
     "repository": {
@@ -43,10 +50,23 @@
         "android/",
         "plugin/",
         "app.plugin.js",
+        "react-native.config.js",
         "react-native-custom-splash.podspec",
         "example/app.json*",
         "example/README.md",
         "README.md",
-        "LICENSE"
-    ]
+        "LICENSE",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "CODE_OF_CONDUCT.md",
+        "SECURITY.md"
+    ],
+    "codegenConfig": {
+        "name": "RNCustomSplashSpec",
+        "type": "modules",
+        "jsSrcsDir": "src",
+        "android": {
+            "javaPackageName": "com.rncustomsplash"
+        }
+    }
 }

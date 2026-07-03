@@ -15,4 +15,12 @@ Pod::Spec.new do |s|
   s.source_files = "ios/*.{h,m,mm,swift}"
   
   s.dependency "React-Core"
+  
+  # Built-in frameworks for video splash support
+  s.frameworks = "AVFoundation", "AVKit"
+  
+  # Optional: Lottie animation support
+  # Users who want Lottie animations must add to their Podfile:
+  #   pod 'lottie-ios', '~> 4.4'
+  # The module uses #if canImport(Lottie) to gracefully handle absence
 end

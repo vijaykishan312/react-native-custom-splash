@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 
 const LINKING_ERROR =
   `The package 'react-native-custom-splash' doesn't seem to be linked. Make sure: \n\n` +
@@ -6,19 +6,25 @@ const LINKING_ERROR =
   '- Rebuild the app after installing the package\n' +
   '- If you are using Expo, run npx expo prebuild\n';
 
-// Try both module names for compatibility
-const SplashScreenModule =
-  NativeModules.SplashScreen || NativeModules.SplashScreenModule;
-
-if (!SplashScreenModule) {
-  throw new Error(LINKING_ERROR);
+// Try TurboModule (New Architecture) first, then fall back to legacy NativeModules
+let SplashScreenModule: any;
+try {
+  SplashScreenModule = TurboModuleRegistry.get('SplashScreen');
+} catch {
+  // TurboModuleRegistry not available on old architecture
 }
 
-if (__DEV__ && !SplashScreenModule) {
-  console.error(
-    '❌ SplashScreen native module not found!',
-    '\nAvailable modules:',
-    Object.keys(NativeModules).filter((m) => m.includes('Splash'))
+if (!SplashScreenModule) {
+  SplashScreenModule =
+    NativeModules.SplashScreen || NativeModules.SplashScreenModule;
+}
+
+if (!SplashScreenModule && __DEV__) {
+  console.warn(
+    `[react-native-custom-splash] Native module not found. ` +
+    `If you are testing or using Expo Go, this is normal and the splash methods will be no-ops. ` +
+    `For production or development clients, make sure to rebuild the native app.\n` +
+    LINKING_ERROR
   );
 }
 
@@ -34,6 +40,12 @@ export interface SplashScreenInterface {
    * @returns Promise that resolves to true if successful
    */
   hide(animated?: boolean): Promise<boolean>;
+
+  /**
+   * Show the splash screen with animation (Lottie/video if configured)
+   * Falls back to static show() if no animation assets are bundled
+   */
+  showAnimated?(): void;
 }
 
 const SplashScreen: SplashScreenInterface = {
@@ -62,6 +74,22 @@ const SplashScreen: SplashScreenInterface = {
     } else {
       console.warn('⚠️ SplashScreen.hide() not available');
       return false;
+    }
+  },
+
+  showAnimated: () => {
+    if (SplashScreenModule?.showAnimated) {
+      if (__DEV__) {
+        console.log('📱 Calling SplashScreen.showAnimated()');
+      }
+      SplashScreenModule.showAnimated();
+    } else if (SplashScreenModule?.show) {
+      if (__DEV__) {
+        console.log('📱 Calling SplashScreen.show() (fallback from showAnimated)');
+      }
+      SplashScreenModule.show();
+    } else {
+      console.warn('⚠️ SplashScreen.showAnimated() not available');
     }
   },
 };

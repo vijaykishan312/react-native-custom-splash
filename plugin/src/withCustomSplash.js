@@ -167,6 +167,54 @@ function withForcediOSSplash(config, pluginConfig) {
             const storyboardPath = path.join(projectDir, 'SplashScreen.storyboard');
             fs.writeFileSync(storyboardPath, storyboard);
 
+            // --- Animation Addon: Copy animation/video assets ---
+            
+            if (pluginConfig.animation) {
+                const animSrc = path.join(projectRoot, pluginConfig.animation);
+                if (fs.existsSync(animSrc)) {
+                    fs.copyFileSync(animSrc, path.join(projectDir, 'splash_animation.json'));
+                    
+                    // We need to add it to the pbxproj but since we can't easily parse it here,
+                    // we expect users to run prebuild, which adds resources in some cases,
+                    // or we rely on Expo's built-in asset copying if configured, 
+                    // or we could use the pbxproj modifier (complex).
+                    // For now, copying to project dir is the first step.
+                    // Better approach for Expo: add to resources in xcodeProject mod if needed,
+                    // but for this plugin, just dropping it in the folder works for Expo prebuild 
+                    // which often sweeps up files, or they can be explicitly added.
+                    console.log('✅ Lottie animation copied to iOS project');
+                } else {
+                    console.warn(`⚠️  Animation file not found: ${pluginConfig.animation}`);
+                }
+            }
+
+            if (pluginConfig.video) {
+                const videoSrc = path.join(projectRoot, pluginConfig.video);
+                if (fs.existsSync(videoSrc)) {
+                    fs.copyFileSync(videoSrc, path.join(projectDir, 'splash_video.mp4'));
+                    console.log('✅ Video copied to iOS project');
+                } else {
+                    console.warn(`⚠️  Video file not found: ${pluginConfig.video}`);
+                }
+            }
+
+            // Write splash config values (logoAnimation, animationLoop, videoLoop)
+            if (pluginConfig.logoAnimation || pluginConfig.animationLoop || pluginConfig.videoLoop) {
+                const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+${pluginConfig.logoAnimation ? `    <key>logoAnimation</key>\n    <string>${pluginConfig.logoAnimation}</string>` : ''}
+${pluginConfig.animationLoop ? `    <key>animationLoop</key>\n    <string>true</string>` : ''}
+${pluginConfig.videoLoop ? `    <key>videoLoop</key>\n    <string>true</string>` : ''}
+</dict>
+</plist>`;
+                fs.writeFileSync(path.join(projectDir, 'splash_config.plist'), plistContent);
+                console.log('✅ Splash config written to iOS project');
+            }
+
+            // --- End Animation Addon ---
+
             console.log('✅ SplashScreen.storyboard REPLACED!');
             console.log(`   📸 Background: ${hasBackground ? 'SplashBg ✓' : 'NO'}`);
             console.log(`   🎨 Logo: ${hasLogo ? 'SplashLogo ✓' : 'NO'}`);

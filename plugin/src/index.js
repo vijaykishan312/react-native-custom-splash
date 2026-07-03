@@ -54,6 +54,12 @@ function validateAndNormalizeConfig(props) {
         image: props.image || null,
         logo: props.logo || null,
         logoWidth: props.logoWidth || 150,
+        // Animation addon config (all optional)
+        animation: props.animation || null,
+        animationLoop: props.animationLoop ?? false,
+        logoAnimation: props.logoAnimation || null,
+        video: props.video || null,
+        videoLoop: props.videoLoop ?? false,
     };
 }
 
@@ -79,6 +85,11 @@ function getPluginConfig(config) {
         image: null,
         logo: null,
         logoWidth: 150,
+        animation: null,
+        animationLoop: false,
+        logoAnimation: null,
+        video: null,
+        videoLoop: false,
     };
 }
 
@@ -254,50 +265,81 @@ function updateAndroidSplashLayout(resDir) {
  * Plugin to configure Android splash screen
  */
 const withSplashScreenAndroid = (config, pluginConfig) => {
-    // Add package to MainApplication
-    config = withMainApplication(config, async (config) => {
-        const { modResults } = config;
-        let contents = modResults.contents;
-
-        // Add import if not already present
-        if (!contents.includes('import com.rncustomsplash.SplashScreenPackage')) {
-            contents = contents.replace(
-                /(package\s+[\w.]+)/,
-                '$1\nimport com.rncustomsplash.SplashScreenPackage'
-            );
-        }
-
-        // Add package to packages list
-        if (!contents.includes('SplashScreenPackage()')) {
-            contents = contents.replace(
-                /(packages\.apply\s*{[^}]*)/,
-                '$1\n              add(SplashScreenPackage())'
-            );
-        }
-
-        modResults.contents = contents;
-        return config;
-    });
-
     // Add splash initialization to MainActivity
     config = withMainActivity(config, async (config) => {
         const { modResults } = config;
         let contents = modResults.contents;
+        const isKotlin = modResults.language === 'kt';
 
-        // Add import if not already present
-        if (!contents.includes('import com.rncustomsplash.SplashScreenModule')) {
-            contents = contents.replace(
-                /(package\s+[\w.]+)/,
-                '$1\nimport com.rncustomsplash.SplashScreenModule'
-            );
-        }
+        if (isKotlin) {
+            // Ensure android.os.Bundle is imported
+            if (!contents.includes('import android.os.Bundle')) {
+                contents = contents.replace(
+                    /(package\s+[\w.]+)/,
+                    '$1\nimport android.os.Bundle'
+                );
+            }
+            // Ensure SplashScreenModule is imported
+            if (!contents.includes('import com.rncustomsplash.SplashScreenModule')) {
+                contents = contents.replace(
+                    /(package\s+[\w.]+)/,
+                    '$1\nimport com.rncustomsplash.SplashScreenModule'
+                );
+            }
 
-        // Add splash show in onCreate
-        if (!contents.includes('SplashScreenModule.show(this)')) {
-            contents = contents.replace(
-                /(override\s+fun\s+onCreate\([^)]*\)\s*{)/,
-                '$1\n    // Show splash screen\n    SplashScreenModule.show(this)\n'
-            );
+            // Add splash show in onCreate
+            if (!contents.includes('SplashScreenModule.show(this)')) {
+                if (contents.includes('override fun onCreate(')) {
+                    contents = contents.replace(
+                        /(override\s+fun\s+onCreate\s*\([^)]*\)\s*\{[^}]*super\.onCreate\([^)]*\))/,
+                        '$1\n    // Show splash screen\n    SplashScreenModule.show(this)'
+                    );
+                } else {
+                    const onCreateMethod = `\n  override fun onCreate(savedInstanceState: Bundle?) {
+    // Show splash screen
+    SplashScreenModule.show(this)
+    super.onCreate(savedInstanceState)
+  }\n`;
+                    contents = contents.replace(
+                        /(class\s+MainActivity\s*:\s*[^{]+\{)/,
+                        `$1${onCreateMethod}`
+                    );
+                }
+            }
+        } else {
+            // Java project
+            if (!contents.includes('import android.os.Bundle;')) {
+                contents = contents.replace(
+                    /(package\s+[\w.]+;)/,
+                    '$1\nimport android.os.Bundle;'
+                );
+            }
+            if (!contents.includes('import com.rncustomsplash.SplashScreenModule;')) {
+                contents = contents.replace(
+                    /(package\s+[\w.]+;)/,
+                    '$1\nimport com.rncustomsplash.SplashScreenModule;'
+                );
+            }
+
+            if (!contents.includes('SplashScreenModule.show(this)')) {
+                if (contents.includes('void onCreate(')) {
+                    contents = contents.replace(
+                        /(protected\s+void\s+onCreate\s*\([^)]*\)\s*\{[^}]*super\.onCreate\([^)]*\);)/,
+                        '$1\n    // Show splash screen\n    SplashScreenModule.show(this);'
+                    );
+                } else {
+                    const onCreateMethod = `\n  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    // Show splash screen
+    SplashScreenModule.show(this);
+    super.onCreate(savedInstanceState);
+  }\n`;
+                    contents = contents.replace(
+                        /(public\s+class\s+MainActivity\s+extends\s+[^{]+\{)/,
+                        `$1${onCreateMethod}`
+                    );
+                }
+            }
         }
 
         modResults.contents = contents;
@@ -347,6 +389,71 @@ const withSplashScreenAndroid = (config, pluginConfig) => {
 
             // Update splash layout
             updateAndroidSplashLayout(resDir);
+
+            // --- Animation Addon: Copy animation/video assets ---
+
+            // Copy Lottie animation JSON to assets folder
+            if (pluginConfig.animation) {
+                const animSrc = path.join(projectRoot, pluginConfig.animation);
+                if (fs.existsSync(animSrc)) {
+                    const assetsDir = path.join(
+                        config.modRequest.platformProjectRoot,
+                        'app',
+                        'src',
+                        'main',
+                        'assets'
+                    );
+                    if (!fs.existsSync(assetsDir)) {
+                        fs.mkdirSync(assetsDir, { recursive: true });
+                    }
+                    fs.copyFileSync(animSrc, path.join(assetsDir, 'splash_animation.json'));
+                    console.log('✅ Lottie animation copied to Android assets');
+                } else {
+                    console.warn(`⚠️  Animation file not found: ${pluginConfig.animation}`);
+                }
+            }
+
+            // Copy video MP4 to res/raw folder
+            if (pluginConfig.video) {
+                const videoSrc = path.join(projectRoot, pluginConfig.video);
+                if (fs.existsSync(videoSrc)) {
+                    const rawDir = path.join(resDir, 'raw');
+                    if (!fs.existsSync(rawDir)) {
+                        fs.mkdirSync(rawDir, { recursive: true });
+                    }
+                    fs.copyFileSync(videoSrc, path.join(rawDir, 'splash_video.mp4'));
+                    console.log('✅ Video copied to Android res/raw');
+                } else {
+                    console.warn(`⚠️  Video file not found: ${pluginConfig.video}`);
+                }
+            }
+
+            // Write splash config values (logoAnimation, animationLoop, videoLoop)
+            if (pluginConfig.logoAnimation || pluginConfig.animationLoop || pluginConfig.videoLoop) {
+                const valuesDir = path.join(resDir, 'values');
+                if (!fs.existsSync(valuesDir)) {
+                    fs.mkdirSync(valuesDir, { recursive: true });
+                }
+
+                let configEntries = [];
+                if (pluginConfig.logoAnimation) {
+                    configEntries.push(`    <string name="splash_logoAnimation">${pluginConfig.logoAnimation}</string>`);
+                }
+                if (pluginConfig.animationLoop) {
+                    configEntries.push(`    <string name="splash_animationLoop">true</string>`);
+                }
+                if (pluginConfig.videoLoop) {
+                    configEntries.push(`    <string name="splash_videoLoop">true</string>`);
+                }
+
+                const configXml = `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+${configEntries.join('\n')}
+</resources>
+`;
+                fs.writeFileSync(path.join(valuesDir, 'splash_config.xml'), configXml);
+                console.log('✅ Splash config written to Android values');
+            }
 
             return config;
         },

@@ -199,6 +199,105 @@ function App() {
 | `image` | `string` | `null` | Path to full background image (optional) |
 | `logo` | `string` | `null` | Path to center logo image (optional) |
 | `logoWidth` | `number` | `150` | Width of the center logo in pixels |
+| `animation` | `string` | `null` | **(NEW)** Path to Lottie `.json` file for animated splash |
+| `animationLoop` | `boolean` | `false` | **(NEW)** Whether to loop the Lottie animation |
+| `logoAnimation` | `string` | `null` | **(NEW)** Apply an animation preset to the logo (`fadeIn`, `scaleUp`, `bounce`, `pulse`, `slideUp`) |
+| `video` | `string` | `null` | **(NEW)** Path to `.mp4` video file for video splash |
+| `videoLoop` | `boolean` | `false` | **(NEW)** Whether to loop the video |
+
+## 🎬 Animation Support (Addon)
+
+Bring your app to life! You can now add Lottie animations, native logo animations, or even a video splash screen! **These features are purely additive** and require zero changes to your existing code.
+
+> **Note:** The new features are triggered by using `SplashScreen.showAnimated()` in your JS code, or automatically during app launch if the assets are configured. 
+
+---
+
+### 1️⃣ Lottie Animation 
+
+Add beautiful, lightweight vector animations using [Lottie](https://lottiefiles.com/).
+
+**Step 1: Get your animation file**
+Download or create a Lottie animation file (e.g. `splash-animation.json`) and place it in your `assets/` folder.
+
+**Step 2: Add iOS Dependency (iOS Only)**
+Since this library is lightweight, Lottie is optional. To use it on iOS, you must add Lottie to your `ios/Podfile`:
+```ruby
+pod 'lottie-ios', '~> 4.4'
+```
+*(Android supports Lottie dynamically out-of-the-box!)*
+
+**Step 3: Configure app.json**
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#FFFFFF",
+          "animation": "./assets/splash-animation.json",
+          "animationLoop": false
+        }
+      ]
+    ]
+  }
+}
+```
+
+---
+
+### 2️⃣ Logo Animation Presets 🎭
+
+If you're using a static logo (`image` or `backgroundColor` + `logo`), you can add a native animation preset to make it pop!
+
+**Available Presets:** `fadeIn`, `scaleUp`, `bounce`, `pulse`, `slideUp`
+
+**Configure app.json:**
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#1E1E1E",
+          "logo": "./assets/logo.png",
+          "logoWidth": 200,
+          "logoAnimation": "bounce"
+        }
+      ]
+    ]
+  }
+}
+```
+
+---
+
+### 3️⃣ Video Splash Screen 📹
+
+Want to show an intro video? You can use an MP4 video as your splash screen! 
+
+**Step 1: Get your video file**
+Place your `.mp4` video in your `assets/` folder. (Keep it short and optimized!)
+
+**Step 2: Configure app.json**
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-custom-splash",
+        {
+          "backgroundColor": "#000000",
+          "video": "./assets/splash-video.mp4",
+          "videoLoop": false
+        }
+      ]
+    ]
+  }
+}
+```
 
 ## 📱 API Reference
 
@@ -328,12 +427,41 @@ Add your splash image to your Xcode project:
 
 ### Android
 
-Add your images to Android resources:
+Add your images to Android resources and initialize the module:
 1. Add `splash_image.png` (background) and/or `splash_logo.png` (center logo) to `android/app/src/main/res/drawable/`
 2. Customize the background color in `android/app/src/main/res/values/colors.xml`:
 
 ```xml
 <color name="splash_background">#FFFFFF</color>
+```
+
+3. Update your `MainActivity` (Kotlin or Java) to show the splash screen on app launch:
+
+**For Kotlin (`MainActivity.kt`):**
+```kotlin
+import android.os.Bundle
+import com.rncustomsplash.SplashScreenModule
+
+class MainActivity : ReactActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        SplashScreenModule.show(this)
+        super.onCreate(savedInstanceState)
+    }
+}
+```
+
+**For Java (`MainActivity.java`):**
+```java
+import android.os.Bundle;
+import com.rncustomsplash.SplashScreenModule;
+
+public class MainActivity extends ReactActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        SplashScreenModule.show(this);
+        super.onCreate(savedInstanceState);
+    }
+}
 ```
 
 ## ❓ Troubleshooting

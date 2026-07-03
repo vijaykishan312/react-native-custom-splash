@@ -11,6 +11,8 @@
 
 RCT_EXTERN_METHOD(show)
 
+RCT_EXTERN_METHOD(showAnimated)
+
 RCT_EXTERN_METHOD(hide:(BOOL)animated
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)

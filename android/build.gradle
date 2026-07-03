@@ -1,5 +1,10 @@
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
 buildscript {
-    ext.kotlin_version = '1.8.0'
+    // Resolve Kotlin version dynamically if specified by host project, else fallback to 1.8.0
+    def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : '1.8.0'
     
     repositories {
         google()
@@ -15,11 +20,12 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 33
+    namespace "com.rncustomsplash"
+    compileSdkVersion safeExtGet('compileSdkVersion', 34)
     
     defaultConfig {
-        minSdkVersion 21
-        targetSdkVersion 33
+        minSdkVersion safeExtGet('minSdkVersion', 21)
+        targetSdkVersion safeExtGet('targetSdkVersion', 34)
         versionCode 1
         versionName "1.0.0"
     }
@@ -46,7 +52,13 @@ repositories {
 }
 
 dependencies {
+    def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : '1.8.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'com.facebook.react:react-native:+'
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    
+    // Optional: Lottie animation support (compileOnly = won't crash if not present)
+    // Users who want Lottie animations must add to their app's build.gradle:
+    //   implementation 'com.airbnb.android:lottie:6.4.0'
+    compileOnly 'com.airbnb.android:lottie:6.4.0'
 }
