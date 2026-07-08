@@ -302,11 +302,13 @@ function addFilesToXcodeProject(iosPath, projectName, pluginConfig) {
     if (filesToAdd.length === 0) return;
 
     for (const file of filesToAdd) {
-        // Skip if already added
-        if (pbxproj.includes(file.name)) continue;
+        // Clean up any old/incorrect references using the same unique IDs to avoid duplicates or broken paths
+        pbxproj = pbxproj.split('\n').filter(line => {
+            return !line.includes(file.id) && !line.includes(file.buildId);
+        }).join('\n');
 
         // 1. Add PBXFileReference
-        const fileRefEntry = `\t\t${file.id} /* ${file.name} */ = {isa = PBXFileReference; lastKnownFileType = ${getFileType(file.name)}; path = ${file.name}; sourceTree = "<group>"; };`;
+        const fileRefEntry = `\t\t${file.id} /* ${file.name} */ = {isa = PBXFileReference; lastKnownFileType = ${getFileType(file.name)}; name = ${file.name}; path = ${projectName}/${file.name}; sourceTree = "<group>"; };`;
         pbxproj = pbxproj.replace(
             /(\/\* End PBXFileReference section \*\/)/,
             `${fileRefEntry}\n$1`
