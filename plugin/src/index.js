@@ -5,10 +5,11 @@ const {
     withMainApplication,
     AndroidConfig,
     IOSConfig,
+    withAndroidColors,
 } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
-const withForcediOSSplash = require('./withCustomSplash');
+const { withForcediOSSplash, withAppDelegateSplash } = require('./withCustomSplash');
 
 /**
  * Validate and normalize plugin configuration
@@ -22,6 +23,9 @@ function validateAndNormalizeConfig(props) {
             image: null,
             logo: null,
             logoWidth: 150,
+            logoDuration: 2000,
+            animationDuration: 0,
+            videoDuration: 0,
         };
     }
 
@@ -35,6 +39,24 @@ function validateAndNormalizeConfig(props) {
     if (props.logoWidth && (typeof props.logoWidth !== 'number' || props.logoWidth <= 0)) {
         console.warn(`⚠️  react-native-custom-splash: Invalid logoWidth "${props.logoWidth}", using default 150`);
         props.logoWidth = 150;
+    }
+
+    // Validate logoDuration
+    if (props.logoDuration !== undefined && (typeof props.logoDuration !== 'number' || props.logoDuration < 0)) {
+        console.warn(`⚠️  react-native-custom-splash: Invalid logoDuration "${props.logoDuration}", using default 2000`);
+        props.logoDuration = 2000;
+    }
+
+    // Validate animationDuration
+    if (props.animationDuration !== undefined && (typeof props.animationDuration !== 'number' || props.animationDuration < 0)) {
+        console.warn(`⚠️  react-native-custom-splash: Invalid animationDuration "${props.animationDuration}", using default 0`);
+        props.animationDuration = 0;
+    }
+
+    // Validate videoDuration
+    if (props.videoDuration !== undefined && (typeof props.videoDuration !== 'number' || props.videoDuration < 0)) {
+        console.warn(`⚠️  react-native-custom-splash: Invalid videoDuration "${props.videoDuration}", using default 0`);
+        props.videoDuration = 0;
     }
 
     // Validate image path
@@ -54,12 +76,15 @@ function validateAndNormalizeConfig(props) {
         image: props.image || null,
         logo: props.logo || null,
         logoWidth: props.logoWidth || 150,
+        logoDuration: props.logoDuration ?? 2000,
         // Animation addon config (all optional)
         animation: props.animation || null,
         animationLoop: props.animationLoop ?? false,
+        animationDuration: props.animationDuration ?? 0,
         logoAnimation: props.logoAnimation || null,
         video: props.video || null,
         videoLoop: props.videoLoop ?? false,
+        videoDuration: props.videoDuration ?? 0,
     };
 }
 
@@ -85,11 +110,14 @@ function getPluginConfig(config) {
         image: null,
         logo: null,
         logoWidth: 150,
+        logoDuration: 2000,
         animation: null,
         animationLoop: false,
+        animationDuration: 0,
         logoAnimation: null,
         video: null,
         videoLoop: false,
+        videoDuration: 0,
     };
 }
 
@@ -181,21 +209,7 @@ async function copyImageToIOS(projectRoot, imagePath, outputName, iosProjectPath
 /**
  * Update Android colors.xml
  */
-function updateAndroidColors(resDir, backgroundColor) {
-    const valuesDir = path.join(resDir, 'values');
-    if (!fs.existsSync(valuesDir)) {
-        fs.mkdirSync(valuesDir, { recursive: true });
-    }
-
-    const colorsPath = path.join(valuesDir, 'colors.xml');
-    const colorsXml = `<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="splash_background">${backgroundColor}</color>
-</resources>
-`;
-
-    fs.writeFileSync(colorsPath, colorsXml);
-}
+// Removed updateAndroidColors
 
 /**
  * Update Android splash drawable
@@ -265,6 +279,31 @@ function updateAndroidSplashLayout(resDir) {
  * Plugin to configure Android splash screen
  */
 const withSplashScreenAndroid = (config, pluginConfig) => {
+    // Add colors via Expo API to prevent overriding other plugins' color properties
+    config = withAndroidColors(config, (config) => {
+        if (!config.modResults.resources) {
+            config.modResults.resources = {};
+        }
+        if (!config.modResults.resources.color) {
+            config.modResults.resources.color = [];
+        }
+        config.modResults = AndroidConfig.Colors.setColorItem(
+            {
+                $: { name: 'splash_background' },
+                _: pluginConfig.backgroundColor,
+            },
+            config.modResults
+        );
+        config.modResults = AndroidConfig.Colors.setColorItem(
+            {
+                $: { name: 'splashscreen_background' },
+                _: pluginConfig.backgroundColor,
+            },
+            config.modResults
+        );
+        return config;
+    });
+
     // Add splash initialization to MainActivity
     config = withMainActivity(config, async (config) => {
         const { modResults } = config;
@@ -288,16 +327,18 @@ const withSplashScreenAndroid = (config, pluginConfig) => {
             }
 
             // Add splash show in onCreate
-            if (!contents.includes('SplashScreenModule.show(this)')) {
-                if (contents.includes('override fun onCreate(')) {
+            if (!contents.includes('SplashScreenModule.showAnimated(this)')) {
+                if (contents.includes('SplashScreenModule.show(this)')) {
+                    contents = contents.replace('SplashScreenModule.show(this)', 'SplashScreenModule.showAnimated(this)');
+                } else if (contents.includes('override fun onCreate(')) {
                     contents = contents.replace(
                         /(override\s+fun\s+onCreate\s*\([^)]*\)\s*\{[^}]*super\.onCreate\([^)]*\))/,
-                        '$1\n    // Show splash screen\n    SplashScreenModule.show(this)'
+                        '$1\n    // Show splash screen\n    SplashScreenModule.showAnimated(this)'
                     );
                 } else {
                     const onCreateMethod = `\n  override fun onCreate(savedInstanceState: Bundle?) {
     // Show splash screen
-    SplashScreenModule.show(this)
+    SplashScreenModule.showAnimated(this)
     super.onCreate(savedInstanceState)
   }\n`;
                     contents = contents.replace(
@@ -321,17 +362,19 @@ const withSplashScreenAndroid = (config, pluginConfig) => {
                 );
             }
 
-            if (!contents.includes('SplashScreenModule.show(this)')) {
-                if (contents.includes('void onCreate(')) {
+            if (!contents.includes('SplashScreenModule.showAnimated(this)')) {
+                if (contents.includes('SplashScreenModule.show(this)')) {
+                    contents = contents.replace('SplashScreenModule.show(this)', 'SplashScreenModule.showAnimated(this)');
+                } else if (contents.includes('void onCreate(')) {
                     contents = contents.replace(
                         /(protected\s+void\s+onCreate\s*\([^)]*\)\s*\{[^}]*super\.onCreate\([^)]*\);)/,
-                        '$1\n    // Show splash screen\n    SplashScreenModule.show(this);'
+                        '$1\n    // Show splash screen\n    SplashScreenModule.showAnimated(this);'
                     );
                 } else {
                     const onCreateMethod = `\n  @Override
   protected void onCreate(Bundle savedInstanceState) {
     // Show splash screen
-    SplashScreenModule.show(this);
+    SplashScreenModule.showAnimated(this);
     super.onCreate(savedInstanceState);
   }\n`;
                     contents = contents.replace(
@@ -359,8 +402,8 @@ const withSplashScreenAndroid = (config, pluginConfig) => {
                 'res'
             );
 
-            // Update colors
-            updateAndroidColors(resDir, pluginConfig.backgroundColor);
+            // Colors are updated dynamically via withAndroidColors above
+
 
             // Copy images if provided
             let hasImage = false;
@@ -428,8 +471,17 @@ const withSplashScreenAndroid = (config, pluginConfig) => {
                 }
             }
 
-            // Write splash config values (logoAnimation, animationLoop, videoLoop)
-            if (pluginConfig.logoAnimation || pluginConfig.animationLoop || pluginConfig.videoLoop) {
+            // Write splash config values (logoAnimation, animationLoop, videoLoop, etc.)
+            if (
+                pluginConfig.logoAnimation ||
+                pluginConfig.animationLoop ||
+                pluginConfig.videoLoop ||
+                pluginConfig.logoWidth ||
+                pluginConfig.logoDuration ||
+                pluginConfig.animationDuration ||
+                pluginConfig.videoDuration ||
+                pluginConfig.backgroundColor
+            ) {
                 const valuesDir = path.join(resDir, 'values');
                 if (!fs.existsSync(valuesDir)) {
                     fs.mkdirSync(valuesDir, { recursive: true });
@@ -445,6 +497,21 @@ const withSplashScreenAndroid = (config, pluginConfig) => {
                 if (pluginConfig.videoLoop) {
                     configEntries.push(`    <string name="splash_videoLoop">true</string>`);
                 }
+                if (pluginConfig.logoWidth !== undefined) {
+                    configEntries.push(`    <string name="splash_logoWidth">${pluginConfig.logoWidth}</string>`);
+                }
+                if (pluginConfig.logoDuration !== undefined) {
+                    configEntries.push(`    <string name="splash_logoDuration">${pluginConfig.logoDuration}</string>`);
+                }
+                if (pluginConfig.animationDuration !== undefined) {
+                    configEntries.push(`    <string name="splash_animationDuration">${pluginConfig.animationDuration}</string>`);
+                }
+                if (pluginConfig.videoDuration !== undefined) {
+                    configEntries.push(`    <string name="splash_videoDuration">${pluginConfig.videoDuration}</string>`);
+                }
+                if (pluginConfig.backgroundColor) {
+                    configEntries.push(`    <string name="splash_backgroundColor">${pluginConfig.backgroundColor}</string>`);
+                }
 
                 const configXml = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -455,6 +522,26 @@ ${configEntries.join('\n')}
                 console.log('✅ Splash config written to Android values');
             }
 
+            // Auto-inject Lottie dependency into app/build.gradle if animation is configured
+            if (pluginConfig.animation) {
+                const appBuildGradle = path.join(
+                    config.modRequest.platformProjectRoot,
+                    'app',
+                    'build.gradle'
+                );
+                if (fs.existsSync(appBuildGradle)) {
+                    let gradleContent = fs.readFileSync(appBuildGradle, 'utf8');
+                    if (!gradleContent.includes('com.airbnb.android:lottie')) {
+                        gradleContent = gradleContent.replace(
+                            /dependencies\s*\{/,
+                            `dependencies {\n    implementation 'com.airbnb.android:lottie:6.4.0'`
+                        );
+                        fs.writeFileSync(appBuildGradle, gradleContent);
+                        console.log('✅ Added Lottie dependency to Android app/build.gradle');
+                    }
+                }
+            }
+
             return config;
         },
     ]);
@@ -462,164 +549,8 @@ ${configEntries.join('\n')}
     return config;
 };
 
-/**
- * Create LaunchScreen.storyboard with splash configuration
- */
-function createLaunchScreenStoryboard(hasImage, hasLogo, backgroundColor) {
-    const bgColor = backgroundColor.replace('#', '');
-    const r = parseInt(bgColor.substr(0, 2), 16) / 255;
-    const g = parseInt(bgColor.substr(2, 2), 16) / 255;
-    const b = parseInt(bgColor.substr(4, 2), 16) / 255;
 
-    const imageViewXML = hasImage ? `
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="splash_image" translatesAutoresizingMaskIntoConstraints="NO" id="splashBgImage">
-                    <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
-                </imageView>` : '';
 
-    const logoViewXML = hasLogo ? `
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="splash_logo" translatesAutoresizingMaskIntoConstraints="NO" id="splashLogo">
-                    <rect key="frame" x="132" y="348" width="150" height="150"/>
-                    <constraints>
-                        <constraint firstAttribute="width" constant="150" id="logoWidth"/>
-                        <constraint firstAttribute="height" constant="150" id="logoHeight"/>
-                    </constraints>
-                </imageView>` : '';
-
-    const imageConstraints = hasImage ? `
-                <constraint firstItem="splashBgImage" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="bgTop"/>
-                <constraint firstItem="splashBgImage" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="bgLeading"/>
-                <constraint firstItem="splashBgImage" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="bgTrailing"/>
-                <constraint firstItem="splashBgImage" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="bgBottom"/>` : '';
-
-    const logoConstraints = hasLogo ? `
-                <constraint firstItem="splashLogo" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="logoCenterX"/>
-                <constraint firstItem="splashLogo" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="logoCenterY"/>` : '';
-
-    const imageResources = [];
-    if (hasImage) imageResources.push('<image name="splash_image" width="1242" height="2688"/>');
-    if (hasLogo) imageResources.push('<image name="splash_logo" width="512" height="512"/>');
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21507" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
-    <device id="retina6_1" orientation="portrait" appearance="light"/>
-    <dependencies>
-        <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21505"/>
-        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
-        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
-    </dependencies>
-    <scenes>
-        <!--View Controller-->
-        <scene sceneID="EHf-IW-A2E">
-            <objects>
-                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
-                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
-                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>${imageViewXML}${logoViewXML}
-                        </subviews>
-                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
-                        <color key="backgroundColor" red="${r}" green="${g}" blue="${b}" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                        <constraints>${imageConstraints}${logoConstraints}
-                        </constraints>
-                    </view>
-                </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="53" y="375"/>
-        </scene>
-    </scenes>
-    <resources>${imageResources.join('\n        ')}
-    </resources>
-</document>`;
-}
-
-/**
- * Plugin to configure iOS splash screen
- */
-const withSplashScreenIOS = (config, pluginConfig) => {
-    config = withDangerousMod(config, [
-        'ios',
-        async (config) => {
-            const projectRoot = config.modRequest.projectRoot;
-            const iosProjectPath = config.modRequest.platformProjectRoot;
-            const projectName = config.modRequest.projectName;
-
-            // Step 1: Update Info.plist to use LaunchScreen
-            const infoPlistPath = path.join(iosProjectPath, projectName, 'Info.plist');
-            if (fs.existsSync(infoPlistPath)) {
-                let infoPlist = fs.readFileSync(infoPlistPath, 'utf8');
-
-                // Update to use LaunchScreen
-                if (!infoPlist.includes('<key>UILaunchStoryboardName</key>')) {
-                    infoPlist = infoPlist.replace('</dict>\n</plist>', '\t<key>UILaunchStoryboardName</key>\n\t<string>LaunchScreen</string>\n</dict>\n</plist>');
-                } else {
-                    // Update existing value to LaunchScreen
-                    infoPlist = infoPlist.replace(
-                        /<key>UILaunchStoryboardName<\/key>\s*<string>.*?<\/string>/,
-                        '<key>UILaunchStoryboardName</key>\n\t<string>LaunchScreen</string>'
-                    );
-                }
-
-                // Remove UILaunchScreen dictionary if present
-                infoPlist = infoPlist.replace(/<key>UILaunchScreen<\/key>[\s\S]*?<\/dict>/g, '');
-
-                fs.writeFileSync(infoPlistPath, infoPlist);
-            }
-
-            // Step 2: Delete old/existing storyboards
-            const oldStoryboards = [
-                path.join(iosProjectPath, projectName, 'SplashScreen.storyboard'),
-                path.join(iosProjectPath, projectName, 'LaunchScreen.storyboard'),
-            ];
-
-            oldStoryboards.forEach(storyPath => {
-                if (fs.existsSync(storyPath)) {
-                    fs.unlinkSync(storyPath);
-                    console.log(`🗑️  Removed old storyboard: ${path.basename(storyPath)}`);
-                }
-            });
-
-            // Step 3: Remove SplashScreenLegacy from Images.xcassets
-            const legacyImagePath = path.join(iosProjectPath, projectName, 'Images.xcassets', 'SplashScreenLegacy.imageset');
-            if (fs.existsSync(legacyImagePath)) {
-                fs.rmSync(legacyImagePath, { recursive: true, force: true });
-                console.log('🗑️  Removed SplashScreenLegacy imageset');
-            }
-
-            // Step 4: Copy user images to iOS assets
-            let hasImage = false;
-            let hasLogo = false;
-
-            if (pluginConfig.image) {
-                hasImage = await copyImageToIOS(projectRoot, pluginConfig.image, 'splash_image', iosProjectPath, projectName);
-                if (hasImage) {
-                    console.log('✅ Background image copied: splash_image');
-                }
-            }
-
-            if (pluginConfig.logo) {
-                hasLogo = await copyImageToIOS(projectRoot, pluginConfig.logo, 'splash_logo', iosProjectPath, projectName);
-                if (hasLogo) {
-                    console.log('✅ Logo image copied: splash_logo');
-                }
-            }
-
-            // Step 5: Create fresh LaunchScreen.storyboard with user images
-            const launchScreenPath = path.join(iosProjectPath, projectName, 'LaunchScreen.storyboard');
-            const storyboardContent = createLaunchScreenStoryboard(hasImage, hasLogo, pluginConfig.backgroundColor);
-            fs.writeFileSync(launchScreenPath, storyboardContent);
-
-            console.log('✅ LaunchScreen.storyboard created with YOUR images!');
-            console.log(`   - Background: ${hasImage ? 'splash_image' : 'color only'}`);
-            console.log(`   - Logo: ${hasLogo ? 'splash_logo' : 'none'}`);
-            console.log(`   - Color: ${pluginConfig.backgroundColor}`);
-
-            return config;
-        },
-    ]);
-    return config;
-};
 
 /**
  * Main plugin export
@@ -639,5 +570,6 @@ module.exports = (config, props = {}) => {
     return withPlugins(config, [
         [withSplashScreenAndroid, pluginConfig],
         [withForcediOSSplash, pluginConfig],
+        withAppDelegateSplash,
     ]);
 };

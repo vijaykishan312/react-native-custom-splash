@@ -1,6 +1,7 @@
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withDangerousMod, withAppDelegate, IOSConfig } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
+const { Paths } = IOSConfig;
 
 /**
  * REAL FIX: Replace Expo's SplashScreen.storyboard directly
@@ -10,6 +11,7 @@ function withForcediOSSplash(config, pluginConfig) {
     // Disable Expo's splash config
     if (config.splash) delete config.splash;
     if (config.ios && config.ios.splash) delete config.ios.splash;
+    if (config.android && config.android.splash) delete config.android.splash;
 
     return withDangerousMod(config, [
         'ios',
@@ -198,19 +200,68 @@ function withForcediOSSplash(config, pluginConfig) {
                 }
             }
 
-            // Write splash config values (logoAnimation, animationLoop, videoLoop)
-            if (pluginConfig.logoAnimation || pluginConfig.animationLoop || pluginConfig.videoLoop) {
-                const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-${pluginConfig.logoAnimation ? `    <key>logoAnimation</key>\n    <string>${pluginConfig.logoAnimation}</string>` : ''}
-${pluginConfig.animationLoop ? `    <key>animationLoop</key>\n    <string>true</string>` : ''}
-${pluginConfig.videoLoop ? `    <key>videoLoop</key>\n    <string>true</string>` : ''}
-</dict>
-</plist>`;
+            // Write splash config values (logoAnimation, animationLoop, videoLoop, etc.)
+            const plistEntries = [];
+            if (pluginConfig.logoAnimation) {
+                plistEntries.push(`    <key>logoAnimation</key>\n    <string>${pluginConfig.logoAnimation}</string>`);
+            }
+            if (pluginConfig.animationLoop) {
+                plistEntries.push(`    <key>animationLoop</key>\n    <string>true</string>`);
+            }
+            if (pluginConfig.videoLoop) {
+                plistEntries.push(`    <key>videoLoop</key>\n    <string>true</string>`);
+            }
+            if (pluginConfig.logoWidth !== undefined) {
+                plistEntries.push(`    <key>logoWidth</key>\n    <string>${pluginConfig.logoWidth}</string>`);
+            }
+            if (pluginConfig.logoDuration !== undefined) {
+                plistEntries.push(`    <key>logoDuration</key>\n    <string>${pluginConfig.logoDuration}</string>`);
+            }
+            if (pluginConfig.animationDuration !== undefined) {
+                plistEntries.push(`    <key>animationDuration</key>\n    <string>${pluginConfig.animationDuration}</string>`);
+            }
+            if (pluginConfig.videoDuration !== undefined) {
+                plistEntries.push(`    <key>videoDuration</key>\n    <string>${pluginConfig.videoDuration}</string>`);
+            }
+            if (pluginConfig.backgroundColor) {
+                plistEntries.push(`    <key>backgroundColor</key>\n    <string>${pluginConfig.backgroundColor}</string>`);
+            }
+
+            if (plistEntries.length > 0) {
+                const plistContent = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n${plistEntries.join('\n')}\n</dict>\n</plist>`;
                 fs.writeFileSync(path.join(projectDir, 'splash_config.plist'), plistContent);
                 console.log('✅ Splash config written to iOS project');
+            }
+
+            // CRITICAL: Add splash files to Xcode project so they end up in the app bundle
+            addFilesToXcodeProject(iosPath, projectName, pluginConfig);
+
+            // If animation is used, automatically add lottie-ios to Podfile
+            if (pluginConfig.animation) {
+                const podfilePath = path.join(iosPath, 'Podfile');
+                if (fs.existsSync(podfilePath)) {
+                    let podfileContent = fs.readFileSync(podfilePath, 'utf8');
+                    if (!podfileContent.includes("lottie-ios")) {
+                        if (podfileContent.includes('use_react_native!')) {
+                            podfileContent = podfileContent.replace(
+                                'use_react_native!',
+                                "pod 'lottie-ios', '~> 4.4'\n  use_react_native!"
+                            );
+                            fs.writeFileSync(podfilePath, podfileContent);
+                            console.log("✅ Added lottie-ios dependency to Podfile");
+                        } else {
+                            const targetRegex = /(target\s+'[^']+'\s+do)/;
+                            if (targetRegex.test(podfileContent)) {
+                                podfileContent = podfileContent.replace(
+                                    targetRegex,
+                                    `$1\n  pod 'lottie-ios', '~> 4.4'`
+                                );
+                                fs.writeFileSync(podfilePath, podfileContent);
+                                console.log("✅ Added lottie-ios dependency to Podfile (target block)");
+                            }
+                        }
+                    }
+                }
             }
 
             // --- End Animation Addon ---
@@ -225,4 +276,132 @@ ${pluginConfig.videoLoop ? `    <key>videoLoop</key>\n    <string>true</string>`
     ]);
 }
 
-module.exports = withForcediOSSplash;
+/**
+ * Add splash resource files to the Xcode project's pbxproj
+ * so they are included in the app bundle at runtime.
+ */
+function addFilesToXcodeProject(iosPath, projectName, pluginConfig) {
+    const pbxprojPath = path.join(iosPath, `${projectName}.xcodeproj`, 'project.pbxproj');
+    if (!fs.existsSync(pbxprojPath)) return;
+
+    let pbxproj = fs.readFileSync(pbxprojPath, 'utf8');
+    const projectDir = path.join(iosPath, projectName);
+
+    // Files to add to the Xcode project resources (must use valid 24-character hex UUIDs)
+    const filesToAdd = [];
+    if (fs.existsSync(path.join(projectDir, 'splash_config.plist'))) {
+        filesToAdd.push({ name: 'splash_config.plist', id: 'FFD0D1D2D3D4D5D6D7D8D901', buildId: 'FFD0D1D2D3D4D5D6D7D8D902' });
+    }
+    if (pluginConfig.animation && fs.existsSync(path.join(projectDir, 'splash_animation.json'))) {
+        filesToAdd.push({ name: 'splash_animation.json', id: 'FFD0D1D2D3D4D5D6D7D8D903', buildId: 'FFD0D1D2D3D4D5D6D7D8D904' });
+    }
+    if (pluginConfig.video && fs.existsSync(path.join(projectDir, 'splash_video.mp4'))) {
+        filesToAdd.push({ name: 'splash_video.mp4', id: 'FFD0D1D2D3D4D5D6D7D8D905', buildId: 'FFD0D1D2D3D4D5D6D7D8D906' });
+    }
+
+    if (filesToAdd.length === 0) return;
+
+    for (const file of filesToAdd) {
+        // Skip if already added
+        if (pbxproj.includes(file.name)) continue;
+
+        // 1. Add PBXFileReference
+        const fileRefEntry = `\t\t${file.id} /* ${file.name} */ = {isa = PBXFileReference; lastKnownFileType = ${getFileType(file.name)}; path = ${file.name}; sourceTree = "<group>"; };`;
+        pbxproj = pbxproj.replace(
+            /(\/\* End PBXFileReference section \*\/)/,
+            `${fileRefEntry}\n$1`
+        );
+
+        // 2. Add PBXBuildFile (for Resources build phase)
+        const buildFileEntry = `\t\t${file.buildId} /* ${file.name} in Resources */ = {isa = PBXBuildFile; fileRef = ${file.id} /* ${file.name} */; };`;
+        pbxproj = pbxproj.replace(
+            /(\/\* End PBXBuildFile section \*\/)/,
+            `${buildFileEntry}\n$1`
+        );
+
+        // 3. Add to Resources build phase (PBXResourcesBuildPhase)
+        pbxproj = pbxproj.replace(
+            /(\s*\/\* Resources \*\/\s*=\s*\{[^}]*files\s*=\s*\()/,
+            `$1\n\t\t\t\t${file.buildId} /* ${file.name} in Resources */,`
+        );
+
+        // 4. Add to the main group's children
+        // Find the project group that contains the app target files
+        const escapedName = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const groupRegex = new RegExp(`(\\/\\*\\s*${escapedName}\\s*\\*\\/\\s*=\\s*\\{[^}]*children\\s*=\\s*\\()`);
+        if (groupRegex.test(pbxproj)) {
+            pbxproj = pbxproj.replace(
+                groupRegex,
+                `$1\n\t\t\t\t${file.id} /* ${file.name} */,`
+            );
+        }
+    }
+
+    fs.writeFileSync(pbxprojPath, pbxproj);
+    console.log(`✅ Added ${filesToAdd.map(f => f.name).join(', ')} to Xcode project`);
+}
+
+function getFileType(filename) {
+    const ext = path.extname(filename).toLowerCase();
+    switch (ext) {
+        case '.plist': return 'text.plist.xml';
+        case '.json': return 'text.json';
+        case '.mp4': return 'file';
+        default: return 'file';
+    }
+}
+
+function withAppDelegateSplash(config) {
+    return withAppDelegate(config, (config) => {
+        let contents = config.modResults.contents;
+        const isSwift = config.modResults.language === 'swift';
+
+        if (isSwift) {
+            // Swift AppDelegate
+            if (!contents.includes('NSClassFromString("SplashScreen")')) {
+                const searchString = 'func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {';
+                if (contents.includes(searchString)) {
+                    const injection = `
+    if let splashClass = NSClassFromString("SplashScreen") as? NSObject.Type {
+        splashClass.perform(Selector(("show")))
+    }
+`;
+                    contents = contents.replace(searchString, `${searchString}${injection}`);
+                    console.log('✅ Added SplashScreen show call to AppDelegate.swift');
+                }
+            }
+        } else {
+            // Objective-C AppDelegate (AppDelegate.mm)
+            if (!contents.includes('NSClassFromString(@"SplashScreen")')) {
+                const searchString = '- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions\n{';
+                const searchStringAlt = '- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {';
+                
+                const injection = `\n  Class splashClass = NSClassFromString(@"SplashScreen");\n  if (splashClass != nil) {\n    [splashClass performSelector:@selector(show)];\n  }\n`;
+
+                if (contents.includes(searchString)) {
+                    contents = contents.replace(searchString, `${searchString}${injection}`);
+                    console.log('✅ Added SplashScreen show call to AppDelegate.mm (Format 1)');
+                } else if (contents.includes(searchStringAlt)) {
+                    contents = contents.replace(searchStringAlt, `${searchStringAlt}${injection}`);
+                    console.log('✅ Added SplashScreen show call to AppDelegate.mm (Format 2)');
+                } else {
+                    const regex = /(-\s*\(BOOL\)\s*application\s*:\s*\(UIApplication\s*\*\s*\)\s*application\s+didFinishLaunchingWithOptions\s*:\s*\(NSDictionary\s*\*\s*\)\s*launchOptions\s*\{)/;
+                    if (regex.test(contents)) {
+                        contents = contents.replace(regex, `$1${injection}`);
+                        console.log('✅ Added SplashScreen show call to AppDelegate.mm (Regex)');
+                    } else {
+                        console.warn('⚠️  Could not find didFinishLaunchingWithOptions in AppDelegate.mm to auto-inject splash screen.');
+                    }
+                }
+            }
+        }
+
+        config.modResults.contents = contents;
+        return config;
+    });
+}
+
+module.exports = {
+    withForcediOSSplash,
+    withAppDelegateSplash,
+};

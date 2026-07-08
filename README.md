@@ -199,17 +199,24 @@ function App() {
 | `image` | `string` | `null` | Path to full background image (optional) |
 | `logo` | `string` | `null` | Path to center logo image (optional) |
 | `logoWidth` | `number` | `150` | Width of the center logo in pixels |
-| `animation` | `string` | `null` | **(NEW)** Path to Lottie `.json` file for animated splash |
-| `animationLoop` | `boolean` | `false` | **(NEW)** Whether to loop the Lottie animation |
+| `logoDuration` | `number` | `2000` | **(NEW)** Duration in ms to show Phase 1 (logo) before transitioning to Phase 2 (animation/video) |
 | `logoAnimation` | `string` | `null` | **(NEW)** Apply an animation preset to the logo (`fadeIn`, `scaleUp`, `bounce`, `pulse`, `slideUp`) |
-| `video` | `string` | `null` | **(NEW)** Path to `.mp4` video file for video splash |
+| `animation` | `string` | `null` | **(NEW)** Path to Lottie `.json` file for animated splash (Phase 2) |
+| `animationDuration` | `number` | `0` | **(NEW)** Duration in ms to play Lottie before auto-dismissing (set to `0` to keep visible until JS `hide()`) |
+| `animationLoop` | `boolean` | `false` | **(NEW)** Whether to loop the Lottie animation |
+| `video` | `string` | `null` | **(NEW)** Path to `.mp4` video file for video splash (Phase 2) |
+| `videoDuration` | `number` | `0` | **(NEW)** Duration in ms to play video before auto-dismissing (set to `0` to keep visible until JS `hide()`) |
 | `videoLoop` | `boolean` | `false` | **(NEW)** Whether to loop the video |
 
-## 🎬 Animation Support (Addon)
+## 🎬 Animation & Dual-Phase Support (Addon) 🎭
 
-Bring your app to life! You can now add Lottie animations, native logo animations, or even a video splash screen! **These features are purely additive** and require zero changes to your existing code.
+Bring your app to life! You can now configure a **dual-phase native splash screen** that first displays your static logo, then transitions seamlessly into a Lottie animation or Video. 
 
-> **Note:** The new features are triggered by using `SplashScreen.showAnimated()` in your JS code, or automatically during app launch if the assets are configured. 
+These features are **fully automated with Zero Configuration**! 
+- ✅ **Automatic iOS Podfile updates**: If `animation` is specified, the config plugin automatically updates your `Podfile` with `pod 'lottie-ios', '~> 4.4'`.
+- ✅ **Automatic Android dependency updates**: If `animation` is specified, the config plugin automatically adds the Lottie dependencies to your app's `build.gradle`.
+- ✅ **Seamless Cross-Fade transitions**: The second phase (Lottie/video) is loaded behind the logo first, then the logo is faded out, eliminating layout jumps.
+- ✅ **Anti-Flash Delay**: The dismiss logic has an integrated 150ms delay allowing React Native to finish layout painting, preventing a white screen flash when transitioning to your main screens.
 
 ---
 
@@ -217,17 +224,10 @@ Bring your app to life! You can now add Lottie animations, native logo animation
 
 Add beautiful, lightweight vector animations using [Lottie](https://lottiefiles.com/).
 
-**Step 1: Get your animation file**
+**Step 1: Place your animation file**
 Download or create a Lottie animation file (e.g. `splash-animation.json`) and place it in your `assets/` folder.
 
-**Step 2: Add iOS Dependency (iOS Only)**
-Since this library is lightweight, Lottie is optional. To use it on iOS, you must add Lottie to your `ios/Podfile`:
-```ruby
-pod 'lottie-ios', '~> 4.4'
-```
-*(Android supports Lottie dynamically out-of-the-box!)*
-
-**Step 3: Configure app.json**
+**Step 2: Configure app.json**
 ```json
 {
   "expo": {
@@ -236,7 +236,10 @@ pod 'lottie-ios', '~> 4.4'
         "react-native-custom-splash",
         {
           "backgroundColor": "#FFFFFF",
+          "logo": "./assets/logo.png",
+          "logoDuration": 2000,
           "animation": "./assets/splash-animation.json",
+          "animationDuration": 3500,
           "animationLoop": false
         }
       ]
@@ -244,6 +247,7 @@ pod 'lottie-ios', '~> 4.4'
   }
 }
 ```
+*(The native Podfile and build.gradle dependencies are fully managed automatically!)*
 
 ---
 
