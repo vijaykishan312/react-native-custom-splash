@@ -46,8 +46,15 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
                     val hasVideo = videoResId != 0
                     val hasLogo = logoResId != 0
 
-                    val bgColorStr = readConfigValue(activity, "backgroundColor") ?: "#FFFFFF"
-                    val bgColor = Color.parseColor(bgColorStr)
+                    var bgColorStr = readConfigValue(activity, "backgroundColor") ?: "#FFFFFF"
+                    if (bgColorStr.startsWith("#") && bgColorStr.length == 4) {
+                        bgColorStr = "#" + bgColorStr[1] + bgColorStr[1] + bgColorStr[2] + bgColorStr[2] + bgColorStr[3] + bgColorStr[3]
+                    }
+                    val bgColor = try {
+                        Color.parseColor(bgColorStr)
+                    } catch (e: Exception) {
+                        Color.WHITE
+                    }
 
                     // Create dynamic container
                     val container = FrameLayout(activity).apply {

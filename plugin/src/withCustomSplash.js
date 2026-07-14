@@ -93,7 +93,10 @@ function withForcediOSSplash(config, pluginConfig) {
 
             // STEP 3: Create CLEAN SplashScreen.storyboard (SAME NAME AS EXPO!)
             const bgColor = pluginConfig.backgroundColor || '#FFFFFF';
-            const color = bgColor.replace('#', '');
+            let color = bgColor.replace('#', '');
+            if (color.length === 3) {
+                color = color.split('').map(char => char + char).join('');
+            }
             const r = (parseInt(color.substr(0, 2), 16) / 255).toFixed(6);
             const g = (parseInt(color.substr(2, 2), 16) / 255).toFixed(6);
             const b = (parseInt(color.substr(4, 2), 16) / 255).toFixed(6);

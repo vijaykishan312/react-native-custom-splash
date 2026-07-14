@@ -5,12 +5,14 @@ A powerful and easy-to-use custom splash screen module for React Native with nat
 ## ✨ Features
 
 - 🚀 **Zero Native Code Required** - Just configure in `app.json`
-- 🎨 **Auto Image Setup** - Automatically copies images from your project to native folders
-- 🖼️ **Background + Logo Support** - Add a full background image and/or center logo
+- 🎬 **Lottie Animations Support** - Play high-performance Lottie animations (`.json`) with loop configuration on your splash screen
+- 📹 **Video Splash Screen Support** - Play custom MP4 videos seamlessly on app startup
+- 🎨 **Auto Asset Setup** - Automatically copies and configures images, animations, and videos from your project to native folders
+- 🖼️ **Background + Logo Support** - Add a full background image and/or center logo with customizable duration and entry animations
 - 🎨 **Customizable Colors** - Set your brand's background color
 - 📱 **Native Performance** - Pure native implementation for both iOS and Android
 - ⚡ **Expo Compatible** - Works seamlessly with Expo managed workflow
-- 🔄 **Simple API** - Easy show/hide methods with animation support
+- 🔄 **Simple API** - Easy show/hide methods with animation and transition support
 
 ## 📦 Installation
 
