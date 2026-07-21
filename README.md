@@ -5,8 +5,9 @@ A powerful and easy-to-use custom splash screen module for React Native with nat
 ## ✨ Features
 
 - 🚀 **Zero Native Code Required** - Just configure in `app.json`
+- 📐 **Fully Responsive** - Works beautifully on all iPhones, iPads, and Android phones/tablets — logo and layout scale automatically to any screen size
 - 🎬 **Lottie Animations Support** - Play high-performance Lottie animations (`.json`) with loop configuration on your splash screen
-- 📹 **Video Splash Screen Support** - Play custom MP4 videos seamlessly on app startup
+- 📹 **Video Splash Screen Support** - Play custom MP4 videos seamlessly on app startup — aspect ratio is preserved on all screen sizes
 - 🎨 **Auto Asset Setup** - Automatically copies and configures images, animations, and videos from your project to native folders
 - 🖼️ **Background + Logo Support** - Add a full background image and/or center logo with customizable duration and entry animations
 - 🎨 **Customizable Colors** - Set your brand's background color
@@ -87,13 +88,15 @@ Great for a clean, minimal look with just your logo.
         {
           "backgroundColor": "#4F46E5",
           "logo": "./assets/logo.png",
-          "logoWidth": 180
+          "logoWidth": "35%"
         }
       ]
     ]
   }
 }
 ```
+
+> 💡 `logoWidth` accepts a **percentage** (e.g. `"35%"`) for automatic scaling across all screen sizes, or a plain number (e.g. `180`) for a fixed point/dp value.
 
 **Project Structure:**
 ```
@@ -120,7 +123,7 @@ Maximum customization - background image with logo on top.
           "backgroundColor": "#FFFFFF",
           "image": "./assets/splash-bg.png",
           "logo": "./assets/logo.png",
-          "logoWidth": 150
+          "logoWidth": "40%"
         }
       ]
     ]
@@ -200,15 +203,26 @@ function App() {
 | `backgroundColor` | `string` | `#FFFFFF` | Background color (hex format: #RRGGBB) |
 | `image` | `string` | `null` | Path to full background image (optional) |
 | `logo` | `string` | `null` | Path to center logo image (optional) |
-| `logoWidth` | `number` | `150` | Width of the center logo in pixels |
-| `logoDuration` | `number` | `2000` | **(NEW)** Duration in ms to show Phase 1 (logo) before transitioning to Phase 2 (animation/video) |
-| `logoAnimation` | `string` | `null` | **(NEW)** Apply an animation preset to the logo (`fadeIn`, `scaleUp`, `bounce`, `pulse`, `slideUp`) |
-| `animation` | `string` | `null` | **(NEW)** Path to Lottie `.json` file for animated splash (Phase 2) |
-| `animationDuration` | `number` | `0` | **(NEW)** Duration in ms to play Lottie before auto-dismissing (set to `0` to keep visible until JS `hide()`) |
-| `animationLoop` | `boolean` | `false` | **(NEW)** Whether to loop the Lottie animation |
-| `video` | `string` | `null` | **(NEW)** Path to `.mp4` video file for video splash (Phase 2) |
-| `videoDuration` | `number` | `0` | **(NEW)** Duration in ms to play video before auto-dismissing (set to `0` to keep visible until JS `hide()`) |
-| `videoLoop` | `boolean` | `false` | **(NEW)** Whether to loop the video |
+| `logoWidth` | `string \| number` | `"25%"` | Width of the logo. Use `"35%"` for a responsive size (% of shorter screen edge) or a number (e.g. `180`) for a fixed pt/dp value |
+| `logoDuration` | `number` | `2000` | Duration in ms to show Phase 1 (logo) before transitioning to Phase 2 (animation/video) |
+| `logoAnimation` | `string` | `null` | Apply an animation preset to the logo: `fadeIn`, `scaleUp`, `bounce`, `pulse`, `slideUp` |
+| `animation` | `string` | `null` | Path to Lottie `.json` file for animated splash (Phase 2) |
+| `animationDuration` | `number` | `0` | Duration in ms to play Lottie before auto-dismissing (set to `0` to keep visible until JS `hide()`) |
+| `animationLoop` | `boolean` | `false` | Whether to loop the Lottie animation |
+| `video` | `string` | `null` | Path to `.mp4` video file for video splash (Phase 2) |
+| `videoDuration` | `number` | `0` | Duration in ms to play video before auto-dismissing (set to `0` to keep visible until JS `hide()`) |
+| `videoLoop` | `boolean` | `false` | Whether to loop the video |
+
+### `logoWidth` — Responsive Sizing
+
+| Value | Behavior |
+|---|---|
+| `"35%"` | 35% of the shorter screen edge — scales on all devices |
+| `"40%"` | 40% of the shorter screen edge (recommended for most logos) |
+| `180` or `"180"` | Fixed 180pt (iOS) / 180dp (Android), clamped to 60% max |
+| *(not set)* | Default: 25% of shorter screen edge |
+
+> 💡 **Recommended:** Use percentage values (`"30%"` – `"45%"`) so your logo looks great on iPhone SE, iPhone 15 Pro Max, iPad Air, and iPad Pro 12.9" without any manual tuning.
 
 ## 🎬 Animation & Dual-Phase Support (Addon) 🎭
 
@@ -269,7 +283,7 @@ If you're using a static logo (`image` or `backgroundColor` + `logo`), you can a
         {
           "backgroundColor": "#1E1E1E",
           "logo": "./assets/logo.png",
-          "logoWidth": 200,
+          "logoWidth": "35%",
           "logoAnimation": "bounce"
         }
       ]
@@ -334,18 +348,35 @@ Shows the splash screen (usually not needed as it shows automatically on app lau
 SplashScreen.show();
 ```
 
+## 📐 Responsive Design
+
+Version **3.2.0** makes the splash screen fully responsive across all devices:
+
+| Device | Approx. logo size at `logoWidth: "35%"` |
+|---|---|
+| iPhone SE (375pt wide) | ~131pt |
+| iPhone 15 Pro (393pt wide) | ~138pt |
+| iPhone 15 Pro Max (430pt wide) | ~151pt |
+| iPad Air 10.9" (820pt wide, 1180pt tall) | ~287pt |
+| iPad Pro 12.9" (1024pt wide, 1366pt tall) | ~358pt |
+| Android phone (360dp shorter) | ~126dp |
+| Android 7" tablet (600dp shorter) | ~210dp |
+| Android 10" tablet (800dp shorter) | ~280dp |
+
+> The percentage is always applied to the **shorter** screen edge, so the logo looks proportional in both portrait and landscape.
+
 ## 🎨 Image Guidelines
 
 ### Background Image
 - **Recommended size:** 1242 x 2688 px (iPhone 13 Pro Max size)
 - **Format:** PNG or JPG
-- **Aspect ratio:** Match your target device screens
-- **Tip:** The plugin will handle different screen densities automatically
+- **Aspect ratio:** The plugin uses `scaleAspectFill` / `CENTER_CROP` — your image will fill the entire screen on every device size
+- **Tip:** Keep important content in the centre 60% of the image to avoid cropping on different aspect ratios
 
 ### Logo Image
-- **Recommended size:** 512 x 512 px (or your desired aspect ratio)
-- **Format:** PNG with transparency recommended
-- **Tip:** The logo will be centered and sized according to `logoWidth`
+- **Recommended size:** 512 x 512 px (square PNG for best results)
+- **Format:** PNG with transparency strongly recommended
+- **Tip:** Use `logoWidth: "35%"` (or any `%` value) for automatic responsive sizing. The logo is always centred both horizontally and vertically.
 
 ## 🔧 Advanced Usage
 

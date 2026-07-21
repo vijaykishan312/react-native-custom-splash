@@ -6,6 +6,12 @@ const { Paths } = IOSConfig;
 /**
  * REAL FIX: Replace Expo's SplashScreen.storyboard directly
  * The issue was: We were creating LaunchScreen.storyboard but Expo uses SplashScreen.storyboard!
+ *
+ * Responsive fixes applied:
+ *  - Storyboard root view uses 0×0 frame with autoresizingMask — Auto Layout handles sizing
+ *  - Background image: pinned to all four edges via constraints (no fixed frame)
+ *  - Logo: centered with a width proportional to the root view (40% of width) and
+ *    a fixed aspect-ratio height constraint — adapts to iPhone SE through iPad Pro 12.9"
  */
 function withForcediOSSplash(config, pluginConfig) {
     // Disable Expo's splash config
@@ -92,6 +98,15 @@ function withForcediOSSplash(config, pluginConfig) {
             }
 
             // STEP 3: Create CLEAN SplashScreen.storyboard (SAME NAME AS EXPO!)
+            // ─────────────────────────────────────────────────────────────────────
+            // KEY RESPONSIVE CHANGES vs old version:
+            //   • Root view frame is "0 0 0 0" — Auto Layout fills whatever screen is present
+            //   • Background image: edge-pinned constraints, no hardcoded frame
+            //   • Logo: proportional width (40% of root view width) via multiplier constraint
+            //     + explicit height via aspect ratio; centered with centerX/centerY constraints
+            //   • No device-specific values (no 393×852 etc.)
+            // ─────────────────────────────────────────────────────────────────────
+
             const bgColor = pluginConfig.backgroundColor || '#FFFFFF';
             let color = bgColor.replace('#', '');
             if (color.length === 3) {
@@ -101,15 +116,32 @@ function withForcediOSSplash(config, pluginConfig) {
             const g = (parseInt(color.substr(2, 2), 16) / 255).toFixed(6);
             const b = (parseInt(color.substr(4, 2), 16) / 255).toFixed(6);
 
-            // Build subviews
+            // Logo proportional width: configurable via logoWidth (e.g. "40%" or plain number)
+            // Default 40% of screen width — looks good on iPhone SE through iPad Pro 12.9"
+            let logoWidthMultiplier = '0.4';
+            if (pluginConfig.logoWidth !== undefined) {
+                const lw = String(pluginConfig.logoWidth);
+                if (lw.endsWith('%')) {
+                    const pct = parseFloat(lw) / 100;
+                    logoWidthMultiplier = isNaN(pct) ? '0.4' : pct.toFixed(4);
+                } else {
+                    // Plain number is still allowed, but we convert to a safe multiplier
+                    // (cap at 70% of width so it never overflows)
+                    const pct = Math.min(parseFloat(lw) / 100, 0.70);
+                    logoWidthMultiplier = isNaN(pct) ? '0.4' : pct.toFixed(4);
+                }
+            }
+
+            // Build subviews XML
             let subviews = '';
             let constraints = '';
             let resources = '';
 
             if (hasBackground) {
+                // Background image — pinned edge-to-edge; no hardcoded frame
                 subviews += `
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashBg" translatesAutoresizingMaskIntoConstraints="NO" id="bgImage">
-                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                                <rect key="frame" x="0.0" y="0.0" width="0.0" height="0.0"/>
                             </imageView>`;
                 constraints += `
                             <constraint firstItem="bgImage" firstAttribute="top" secondItem="rootView" secondAttribute="top" id="c1"/>
@@ -121,21 +153,21 @@ function withForcediOSSplash(config, pluginConfig) {
             }
 
             if (hasLogo) {
+                // Logo — centered, proportional width, aspect ratio preserved
                 subviews += `
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashLogo" translatesAutoresizingMaskIntoConstraints="NO" id="logoImage">
-                                <rect key="frame" x="121" y="376" width="150" height="100"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="150" id="c5"/>
-                                    <constraint firstAttribute="height" constant="100" id="c6"/>
-                                </constraints>
+                                <rect key="frame" x="0.0" y="0.0" width="0.0" height="0.0"/>
                             </imageView>`;
                 constraints += `
                             <constraint firstItem="logoImage" firstAttribute="centerX" secondItem="rootView" secondAttribute="centerX" id="c7"/>
-                            <constraint firstItem="logoImage" firstAttribute="centerY" secondItem="rootView" secondAttribute="centerY" id="c8"/>`;
+                            <constraint firstItem="logoImage" firstAttribute="centerY" secondItem="rootView" secondAttribute="centerY" id="c8"/>
+                            <constraint firstItem="logoImage" firstAttribute="width" secondItem="rootView" secondAttribute="width" multiplier="${logoWidthMultiplier}" id="c9"/>
+                            <constraint firstItem="logoImage" firstAttribute="height" secondItem="logoImage" secondAttribute="width" multiplier="1" id="c10"/>`;
                 resources += `
         <image name="SplashLogo" width="512" height="512"/>`;
             }
 
+            // Storyboard — root view has 0×0 frame; autoresizingMask fills the screen
             const storyboard = `<?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="MAIN-VC">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
@@ -149,7 +181,7 @@ function withForcediOSSplash(config, pluginConfig) {
             <objects>
                 <viewController id="MAIN-VC" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="rootView">
-                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <rect key="frame" x="0.0" y="0.0" width="0.0" height="0.0"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>${subviews}
                         </subviews>
@@ -269,9 +301,10 @@ function withForcediOSSplash(config, pluginConfig) {
 
             // --- End Animation Addon ---
 
-            console.log('✅ SplashScreen.storyboard REPLACED!');
+            console.log('✅ SplashScreen.storyboard REPLACED! (Responsive — works on all device sizes)');
             console.log(`   📸 Background: ${hasBackground ? 'SplashBg ✓' : 'NO'}`);
             console.log(`   🎨 Logo: ${hasLogo ? 'SplashLogo ✓' : 'NO'}`);
+            console.log(`   📐 Logo width: ${logoWidthMultiplier * 100}% of screen width`);
             console.log(`   🌈 Color: ${bgColor}\n`);
 
             return config;

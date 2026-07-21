@@ -5,6 +5,7 @@
 //  Logo animation presets for the splash screen.
 //  These are applied to the existing splash_logo UIImageView
 //  only when the user configures a logoAnimation in app.json.
+//  All offsets are screen-relative so they work on any device size.
 //
 
 import Foundation
@@ -101,7 +102,12 @@ class SplashAnimationHelper {
   
   private static func applySlideUp(view: UIImageView, duration: TimeInterval) {
     let originalCenter = view.center
-    view.center = CGPoint(x: originalCenter.x, y: originalCenter.y + 200)
+    // Use 25% of the screen height as the slide offset so it looks natural
+    // on both compact iPhones and large iPads (not a fixed 200pt).
+    let screenHeight = UIScreen.main.bounds.height
+    let slideOffset = screenHeight * 0.25
+    
+    view.center = CGPoint(x: originalCenter.x, y: originalCenter.y + slideOffset)
     view.alpha = 0
     UIView.animate(
       withDuration: duration,

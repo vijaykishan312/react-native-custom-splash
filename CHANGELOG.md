@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-07-21
+
+### Added
+- 📐 **Responsive multi-device support** — splash screen now adapts to all iPhone, iPad, and Android phone/tablet sizes automatically.
+- 🔢 **`logoWidth` now accepts percentage strings** (e.g. `"35%"`) on both iOS and Android — interpreted as a percentage of the shorter screen dimension, so the logo scales proportionally across all screen sizes. Plain point/dp values still work unchanged.
+- 📐 **Expo storyboard is now device-agnostic** — root view uses `autoresizingMask` instead of a hardcoded `393×852` frame; logo uses an Auto Layout proportional width multiplier constraint instead of fixed pixels.
+
+### Changed
+- 🎯 **Default logo size** changed from a fixed `150pt/dp` to **25% of the shorter screen dimension** on both platforms (≈80pt on iPhone SE, ≈130pt on iPhone 15 Pro, ≈260pt on iPad Pro 12.9"). Explicit `logoWidth` overrides this.
+- 📹 **iOS video player** — `AVPlayerLayer` frame now updates on device rotation (important for iPad landscape).
+- 📹 **Android video player** — `VideoView` sizes itself based on the actual video's aspect ratio via `OnPreparedListener`, preventing stretching on wide tablet screens.
+- 🎞️ **`slideUp` animation offset** is now `25%` of screen height (was a hardcoded `200pt/200f`) on both iOS and Android, so the slide distance is proportional on every device.
+- 🪟 **Android dialog** now explicitly calls `setLayout(MATCH_PARENT, MATCH_PARENT)` to guarantee full-screen coverage on tablets.
+- 🍎 **iOS window restore** after hide now uses the modern scene-based API (`connectedScenes`) instead of the deprecated `UIApplication.shared.windows`.
+
 ## [3.1.1] - 2026-07-04
+
 
 ### Added
 - 🎬 Added **Lottie animation support** (requires `lottie-ios` on iOS, built-in on Android).

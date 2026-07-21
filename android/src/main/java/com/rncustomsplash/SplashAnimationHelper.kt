@@ -9,6 +9,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 /**
  * Provides preset logo animations for the splash screen.
  * This is purely additive — only called when logoAnimation config is set.
+ * All offsets are screen-relative so they work on phones and tablets alike.
  */
 object SplashAnimationHelper {
 
@@ -99,10 +100,15 @@ object SplashAnimationHelper {
     }
 
     private fun applySlideUp(view: View, duration: Long) {
-        view.translationY = 200f
+        // Use 25% of the screen height as the slide offset.
+        // This scales correctly from a 5" phone to a 13" tablet.
+        val screenHeightPx = view.resources.displayMetrics.heightPixels.toFloat()
+        val slideOffset = screenHeightPx * 0.25f
+
+        view.translationY = slideOffset
         view.alpha = 0f
 
-        val translateY = ObjectAnimator.ofFloat(view, "translationY", 200f, 0f)
+        val translateY = ObjectAnimator.ofFloat(view, "translationY", slideOffset, 0f)
         val alpha = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
 
         AnimatorSet().apply {

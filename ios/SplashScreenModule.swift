@@ -3,6 +3,7 @@
 //  RNCustomSplash
 //
 //  Custom Native Splash Screen Module for iOS
+//  Responsive for all iPhone/iPad sizes and orientations.
 //
 
 import Foundation
@@ -22,6 +23,8 @@ class SplashScreenModule: NSObject {
   private static var isVisible = false
   private static var logoImageView: UIImageView?
   private static var player: AVPlayer?
+  private static var playerLayer: AVPlayerLayer?
+  private static var orientationObserver: NSObjectProtocol?
   
   @objc
   static func requiresMainQueueSetup() -> Bool {
@@ -70,7 +73,9 @@ class SplashScreenModule: NSObject {
     guard !isVisible else { return }
     
     // Find active window scene
-    guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) as? UIWindowScene ?? UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+    guard let scene = UIApplication.shared.connectedScenes
+      .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) as? UIWindowScene
+      ?? UIApplication.shared.connectedScenes.first as? UIWindowScene else {
       return
     }
     
@@ -78,6 +83,7 @@ class SplashScreenModule: NSObject {
     window.windowLevel = .alert + 1
     
     let splashVC = UIViewController()
+    splashVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     
     // Read background color from config, default to white
     let bgColorStr = readConfigValue(key: "backgroundColor") ?? "#FFFFFF"
@@ -181,12 +187,38 @@ class SplashScreenModule: NSObject {
     isVisible = true
   }
   
+  // MARK: - Responsive Logo Sizing
+  
+  /// Returns a logo size adapted to the current screen:
+  /// - If `logoWidth` config contains `%` (e.g. "30%"), it's treated as a percentage of the shorter screen dimension.
+  /// - If it's a plain number (e.g. "200"), it's used as points directly.
+  /// - Default: 25% of the shorter screen dimension.
+  private static func resolveLogoWidth(superview: UIView) -> CGFloat {
+    let screenBounds = superview.bounds
+    let shorterDimension = min(screenBounds.width, screenBounds.height)
+    
+    guard let logoWidthStr = readConfigValue(key: "logoWidth") else {
+      // Default: 25% of the shorter screen dimension — works on all phones, iPads, tablets
+      return shorterDimension * 0.25
+    }
+    
+    if logoWidthStr.hasSuffix("%"),
+       let pct = Double(logoWidthStr.dropLast()) {
+      // Percentage of the shorter dimension
+      return shorterDimension * CGFloat(pct / 100.0)
+    } else if let pts = Double(logoWidthStr) {
+      // Plain point value — clamp so it's never more than 60% of the short side
+      return min(CGFloat(pts), shorterDimension * 0.60)
+    }
+    
+    return shorterDimension * 0.25
+  }
+  
   private static func createLogoView(logoImage: UIImage, superview: UIView) -> UIImageView {
     let logoView = UIImageView(image: logoImage)
     logoView.contentMode = .scaleAspectFit
     
-    let logoWidthStr = readConfigValue(key: "logoWidth") ?? "150"
-    let logoWidth = CGFloat(Double(logoWidthStr) ?? 150.0)
+    let logoWidth = resolveLogoWidth(superview: superview)
     let aspectRatio = logoImage.size.height / logoImage.size.width
     let logoHeight = logoWidth * aspectRatio
     
@@ -196,9 +228,15 @@ class SplashScreenModule: NSObject {
       width: logoWidth,
       height: logoHeight
     )
-    logoView.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+    // Flexible margins keep it centred when the view resizes (rotation, iPad split-view)
+    logoView.autoresizingMask = [
+      .flexibleLeftMargin, .flexibleRightMargin,
+      .flexibleTopMargin, .flexibleBottomMargin
+    ]
     return logoView
   }
+  
+  // MARK: - Lottie
   
   private static func playLottie(animationPath: String, container: UIView) {
     #if canImport(Lottie)
@@ -216,15 +254,20 @@ class SplashScreenModule: NSObject {
     #endif
   }
   
+  // MARK: - Video (rotation-aware)
+  
   private static func playVideo(videoPath: String, container: UIView) {
     let videoURL = URL(fileURLWithPath: videoPath)
     let avPlayer = AVPlayer(url: videoURL)
     avPlayer.isMuted = true
     
-    let playerLayer = AVPlayerLayer(player: avPlayer)
-    playerLayer.frame = container.bounds
-    playerLayer.videoGravity = .resizeAspectFill
-    container.layer.addSublayer(playerLayer)
+    let layer = AVPlayerLayer(player: avPlayer)
+    layer.frame = container.bounds
+    layer.videoGravity = .resizeAspectFill
+    container.layer.addSublayer(layer)
+    
+    // Keep reference so we can resize on rotation
+    playerLayer = layer
     
     let shouldLoop = readConfigValue(key: "videoLoop") == "true"
     if shouldLoop {
@@ -236,6 +279,19 @@ class SplashScreenModule: NSObject {
         avPlayer.seek(to: .zero)
         avPlayer.play()
       }
+    }
+    
+    // Observe orientation changes to resize the player layer (important for iPad)
+    orientationObserver = NotificationCenter.default.addObserver(
+      forName: UIDevice.orientationDidChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak container] _ in
+      guard let containerView = container else { return }
+      CATransaction.begin()
+      CATransaction.setDisableActions(true)
+      playerLayer?.frame = containerView.bounds
+      CATransaction.commit()
     }
     
     avPlayer.play()
@@ -272,8 +328,16 @@ class SplashScreenModule: NSObject {
     )
   }
   
+  // MARK: - Hide
+  
   fileprivate static func hideSplashInternal(animated: Bool) {
     guard isVisible, let window = splashWindow else { return }
+    
+    // Remove orientation observer for video
+    if let obs = orientationObserver {
+      NotificationCenter.default.removeObserver(obs)
+      orientationObserver = nil
+    }
     
     // Tiny delay of 150ms to allow React Native layout to perform its first draw pass.
     // This completely eliminates the white frame flash.
@@ -285,6 +349,7 @@ class SplashScreenModule: NSObject {
       }
       player?.pause()
       player = nil
+      playerLayer = nil
       logoImageView = nil
       
       if animated {
@@ -296,8 +361,9 @@ class SplashScreenModule: NSObject {
           splashWindow = nil
           isVisible = false
           
-          if let mainWindow = UIApplication.shared.windows.first(where: { $0.rootViewController != nil && $0 != window }) {
-            mainWindow.makeKeyAndVisible()
+          // Scene-based window restoration (replaces deprecated UIApplication.shared.windows)
+          if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            scene.windows.first(where: { $0.rootViewController != nil && $0 != window })?.makeKeyAndVisible()
           }
         }
       } else {
@@ -306,8 +372,8 @@ class SplashScreenModule: NSObject {
         splashWindow = nil
         isVisible = false
         
-        if let mainWindow = UIApplication.shared.windows.first(where: { $0.rootViewController != nil && $0 != window }) {
-          mainWindow.makeKeyAndVisible()
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+          scene.windows.first(where: { $0.rootViewController != nil && $0 != window })?.makeKeyAndVisible()
         }
       }
     }

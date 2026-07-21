@@ -1,17 +1,21 @@
 package com.rncustomsplash
 
 import android.app.Dialog
-import android.content.res.AssetManager
+import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Point
 import android.graphics.drawable.ColorDrawable
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.ImageView
-import android.widget.VideoView
 import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.RelativeLayout
+import android.widget.VideoView
 import android.app.Activity
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -65,7 +69,7 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
                         setBackgroundColor(bgColor)
                     }
 
-                    // Add background image if available
+                    // Add background image if available (full-bleed, aspect-fill)
                     if (bgResId != 0) {
                         val bgView = ImageView(activity).apply {
                             layoutParams = FrameLayout.LayoutParams(
@@ -78,16 +82,14 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
                         container.addView(bgView)
                     }
 
-                    // Create the dialog
-                    val dialog = Dialog(activity, android.R.style.Theme_NoTitleBar_Fullscreen).apply {
+                    // Create the dialog using a style that supports all API levels and form factors
+                    val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen).apply {
                         setContentView(container)
                         setCancelable(false)
                         window?.apply {
                             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                            setFlags(
-                                WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                                WindowManager.LayoutParams.FLAG_FULLSCREEN
-                            )
+                            // Modern edge-to-edge handling
+                            addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                 setDecorFitsSystemWindows(false)
                             } else {
@@ -101,6 +103,11 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
                                     or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                                 )
                             }
+                            // Ensure dialog fills the full window on tablets too
+                            setLayout(
+                                WindowManager.LayoutParams.MATCH_PARENT,
+                                WindowManager.LayoutParams.MATCH_PARENT
+                            )
                         }
                     }
 
@@ -109,13 +116,9 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
 
                     if (hasLogo && (hasAnimation || hasVideo)) {
                         // Phase 1: Show logo first
-                        val logoWidthDpStr = readConfigValue(activity, "logoWidth") ?: "150"
-                        val logoWidthDp = logoWidthDpStr.toFloatOrNull() ?: 150f
-                        val density = activity.resources.displayMetrics.density
-                        val logoWidthPx = (logoWidthDp * density + 0.5f).toInt()
-
+                        val logoWidthPx = resolveLogoWidthPx(activity)
                         val logoParams = FrameLayout.LayoutParams(logoWidthPx, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-                            gravity = android.view.Gravity.CENTER
+                            gravity = Gravity.CENTER
                         }
                         val logoImageView = ImageView(activity).apply {
                             setImageResource(logoResId)
@@ -191,13 +194,9 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
                     } else {
                         // Static splash only (logo or image)
                         if (hasLogo) {
-                            val logoWidthDpStr = readConfigValue(activity, "logoWidth") ?: "150"
-                            val logoWidthDp = logoWidthDpStr.toFloatOrNull() ?: 150f
-                            val density = activity.resources.displayMetrics.density
-                            val logoWidthPx = (logoWidthDp * density + 0.5f).toInt()
-
+                            val logoWidthPx = resolveLogoWidthPx(activity)
                             val logoParams = FrameLayout.LayoutParams(logoWidthPx, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-                                gravity = android.view.Gravity.CENTER
+                                gravity = Gravity.CENTER
                             }
                             val logoImageView = ImageView(activity).apply {
                                 setImageResource(logoResId)
@@ -214,6 +213,37 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
 
                 } catch (e: Exception) {
                     e.printStackTrace()
+                }
+            }
+        }
+
+        /**
+         * Resolve the logo width in pixels, responsive to screen size.
+         * - If config has "logoWidth" ending with "%" — use that % of the shorter screen dimension.
+         * - If config has a plain number — use it as dp, clamped to 60% of shorter dimension.
+         * - Default: 25% of the shorter screen dimension.
+         */
+        private fun resolveLogoWidthPx(activity: Activity): Int {
+            val dm = activity.resources.displayMetrics
+            val density = dm.density
+            val shorterDimPx = minOf(dm.widthPixels, dm.heightPixels)
+
+            val logoWidthStr = readConfigValue(activity, "logoWidth")
+
+            return when {
+                logoWidthStr == null -> {
+                    // Default: 25% of the shorter screen dimension
+                    (shorterDimPx * 0.25f).toInt()
+                }
+                logoWidthStr.endsWith("%") -> {
+                    val pct = logoWidthStr.dropLast(1).toFloatOrNull() ?: 25f
+                    (shorterDimPx * (pct / 100f)).toInt()
+                }
+                else -> {
+                    val dp = logoWidthStr.toFloatOrNull() ?: 150f
+                    val px = (dp * density + 0.5f).toInt()
+                    // Clamp: never exceed 60% of the shorter screen side
+                    minOf(px, (shorterDimPx * 0.60f).toInt())
                 }
             }
         }
@@ -247,16 +277,23 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
             }
         }
 
+        /**
+         * Play a video with correct aspect-ratio handling for all screen sizes.
+         * VideoView is wrapped in a centered container; its size is updated once
+         * the video size is known to avoid stretching on tablets.
+         */
         private fun playVideo(activity: Activity, container: FrameLayout, videoResId: Int) {
             try {
-                val videoView = VideoView(activity).apply {
-                    layoutParams = FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                    ).apply {
-                        gravity = android.view.Gravity.CENTER
-                    }
+                val videoView = VideoView(activity)
+                
+                // Start with MATCH_PARENT; we'll correct the size once video dimensions are known
+                val params = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                ).apply {
+                    gravity = Gravity.CENTER
                 }
+                videoView.layoutParams = params
                 
                 val videoUri = Uri.parse("android.resource://${activity.packageName}/$videoResId")
                 videoView.setVideoURI(videoUri)
@@ -265,6 +302,35 @@ class SplashScreenModule(reactContext: ReactApplicationContext) : ReactContextBa
                     mp.setVolume(0f, 0f)
                     val shouldLoop = readConfigValue(activity, "videoLoop") == "true"
                     mp.isLooping = shouldLoop
+
+                    // Correct aspect ratio once we know the video dimensions
+                    val videoWidth = mp.videoWidth
+                    val videoHeight = mp.videoHeight
+                    if (videoWidth > 0 && videoHeight > 0) {
+                        val containerWidth = container.width.takeIf { it > 0 }
+                            ?: activity.resources.displayMetrics.widthPixels
+                        val containerHeight = container.height.takeIf { it > 0 }
+                            ?: activity.resources.displayMetrics.heightPixels
+
+                        val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
+                        val containerAspect = containerWidth.toFloat() / containerHeight.toFloat()
+
+                        val newWidth: Int
+                        val newHeight: Int
+                        if (videoAspect > containerAspect) {
+                            // Video is wider — fit to width
+                            newWidth = containerWidth
+                            newHeight = (containerWidth / videoAspect).toInt()
+                        } else {
+                            // Video is taller — fit to height
+                            newHeight = containerHeight
+                            newWidth = (containerHeight * videoAspect).toInt()
+                        }
+
+                        videoView.layoutParams = FrameLayout.LayoutParams(newWidth, newHeight).apply {
+                            gravity = Gravity.CENTER
+                        }
+                    }
                 }
 
                 videoView.start()
